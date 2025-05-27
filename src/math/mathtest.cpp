@@ -13,6 +13,14 @@
 #include <tuple>
 #include <vector>
 
+/*
+ * When testing GMP, one must be mindful of floating point precision. A double
+ * literal like '1.1' will round to the nearest representable value, which is
+ * something like '1.100000...00088...'. So constructing an arbitrary float like
+ * Scalar{1.1} will not give the desired value. Instead, use the string overload
+ * Scalar{"1.1"}.
+ */
+
 class TestMathInterpreter : public QObject
 {
     Q_OBJECT
@@ -143,10 +151,10 @@ void testParentheses(MathInterpreter const& interpreter)
         QCOMPARE(interpreter.parse(input), std::nullopt);
     }
 
-    std::vector<std::tuple<std::string, double>> const interpretTestCases{
-        {"(1.1)", 1.1},
-        {"((1.1))", 1.1},
-        {"(((1.1)))", 1.1},
+    std::vector<std::tuple<std::string, Scalar>> const interpretTestCases{
+        {"(1.1)", Scalar{"1.1"}},
+        {"((1.1))", Scalar{"1.1"}},
+        {"(((1.1)))", Scalar{"1.1"}},
 
         {"1.0 + (2.0)", 3.0},
         {"(1.0) + 2.0", 3.0},
@@ -162,8 +170,8 @@ void testParentheses(MathInterpreter const& interpreter)
     {
         auto const statementResult{interpreter.parse(input)};
         QVERIFY(statementResult.has_value());
-
-        QCOMPARE(interpreter.interpret(input), output);
+        auto const interpretResult{interpreter.interpret(input)};
+        QCOMPARE(interpretResult, output);
     }
 }
 
@@ -259,27 +267,27 @@ void testFunctionParsing(MathInterpreter const& interpreter)
 void testScalarStringify()
 {
     std::vector<std::tuple<Scalar, std::string>> const testCases{
-        {Scalar{0.00123}, "1.23e-3"},
-        {Scalar{0.0123}, "0.012_3"},
-        {Scalar{0.123}, "0.123"},
-        {Scalar{1.23}, "1.23"},
-        {Scalar{12.3}, "12.3"},
-        {Scalar{123.0}, "123"},
-        {Scalar{1230.0}, "1_230"},
-        {Scalar{12300.0}, "12_300"},
-        {Scalar{123000.0}, "123_000"},
-        {Scalar{1230000.0}, "1_230_000"},
-        {Scalar{12300000.0}, "1.23e7"},
-        {Scalar{123000000.0}, "1.23e8"},
-        {Scalar{1230000000.0}, "1.23e9"},
-        {Scalar{12300000000.0}, "1.23e10"},
-        {Scalar{123000000000.0}, "1.23e11"},
+        {Scalar{"0.00123"}, "1.23e-3"},
+        {Scalar{"0.0123"}, "0.012_3"},
+        {Scalar{"0.123"}, "0.123"},
+        {Scalar{"1.23"}, "1.23"},
+        {Scalar{"12.3"}, "12.3"},
+        {Scalar{"123.0"}, "123"},
+        {Scalar{"1230.0"}, "1_230"},
+        {Scalar{"12300.0"}, "12_300"},
+        {Scalar{"123000.0"}, "123_000"},
+        {Scalar{"1230000.0"}, "1_230_000"},
+        {Scalar{"12300000.0"}, "1.23e7"},
+        {Scalar{"123000000.0"}, "1.23e8"},
+        {Scalar{"1230000000.0"}, "1.23e9"},
+        {Scalar{"12300000000.0"}, "1.23e10"},
+        {Scalar{"123000000000.0"}, "1.23e11"},
 
-        {Scalar{0.1234567890123}, "0.123_456_789"},
-        {Scalar{1234567891234.5}, "1.234_567_891e12"},
+        {Scalar{"0.1234567890123"}, "0.123_456_789"},
+        {Scalar{"1234567891234.5"}, "1.234_567_891e12"},
 
-        {Scalar{0}, "0"},
-        {Scalar{0.0}, "0"},
+        {Scalar{"0"}, "0"},
+        {Scalar{"0.0"}, "0"},
     };
 
     for (auto const& [input, output] : testCases)
