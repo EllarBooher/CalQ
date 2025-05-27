@@ -76,6 +76,64 @@ void testParse()
     }
 }
 
+void testParentheses()
+{
+    std::vector<std::string> const invalidTestCases{
+        "()",
+        "(())",
+        "((()))",
+
+        "(",
+        "(()",
+        "())",
+        ")",
+
+        "0(",
+        ")0",
+        "0)",
+        "0(",
+        "0()",
+
+        "0+(",
+        "(+)",
+        "(+0",
+        "(+",
+
+        "0.(",
+        "0.0 + 0.0(",
+
+        "(((((0.0) + 1.0) + 2.0) + 3.0) + 4.0) + 5.0)",
+    };
+
+    for (auto const& input : invalidTestCases)
+    {
+        QCOMPARE(MathInterpreter::parse(input), std::nullopt);
+    }
+
+    std::vector<std::tuple<std::string, double>> const interpretTestCases{
+        {"(1.1)", 1.1},
+        {"((1.1))", 1.1},
+        {"(((1.1)))", 1.1},
+
+        {"1.0 + (2.0)", 3.0},
+        {"(1.0) + 2.0", 3.0},
+        {"3.0 * (2.0)", 6.0},
+        {"(3.0) * (2.0)", 6.0},
+
+        {"0.0 + (1.0 + (2.0 + (3.0 + (4.0 + (5.0)))))", 15.0},
+        {"((((((0.0) + 1.0) + 2.0) + 3.0) + 4.0) + 5.0)", 15.0},
+
+        {"2.0 * (3.0 + 4.0)", 14.0},
+    };
+    for (auto const& [input, output] : interpretTestCases)
+    {
+        auto const statementResult{MathInterpreter::parse(input)};
+        QVERIFY(statementResult.has_value());
+
+        QCOMPARE(MathInterpreter::interpret(input), output);
+    }
+}
+
 void testWhitespace()
 {
     std::vector<std::string> const whitespaceParseCases{
@@ -144,6 +202,7 @@ void TestMathInterpreter::test()
 {
     testParse();
     testWhitespace();
+    testParentheses();
     testInterpret();
     testOrderOfOperators();
 }

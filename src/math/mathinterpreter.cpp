@@ -7,9 +7,11 @@
 #include <deque>
 #include <expected>
 #include <optional>
+#include <stack>
 #include <stdexcept>
 #include <string>
 #include <unordered_set>
+#include <variant>
 #include <vector>
 
 namespace
@@ -33,12 +35,24 @@ enum class StatementCharacterType : uint8_t
 {
     MathOperator,
     Digit,
-    Decimal
+    Decimal,
+    OpenParenthesis,
+    CloseParenthesis,
 };
 
 auto parseCharacter(char const character)
     -> std::optional<StatementCharacterType>
 {
+    if (character == '(')
+    {
+        return StatementCharacterType::OpenParenthesis;
+    }
+
+    if (character == ')')
+    {
+        return StatementCharacterType::CloseParenthesis;
+    }
+
     if (checkIsDigit(character))
     {
         return StatementCharacterType::Digit;
@@ -107,6 +121,10 @@ struct MathStatementParser
     auto execute() -> std::optional<MathStatement>
     {
         IncrementResult incrementResult{IncrementResult::Continue};
+        assert(statementDepthStack.empty());
+        rootStatement = {};
+        statementDepthStack.push(&rootStatement);
+
         while (incrementResult == IncrementResult::Continue)
         {
             incrementResult = increment();
@@ -128,15 +146,28 @@ private:
         Error,
     };
 
+    enum class ParseState : uint8_t
+    {
+        OpenedStatement,
+        NumberPreDecimal,
+        NumberPostDecimal,
+        Operator,
+        ClosedStatement,
+    };
+
     /**
-     * @brief increment - Increments the index into the math statement string,
-     * and transitions the state.
+     * Increments the index into the string we are parsing, expanding the
+     * resulting MathStatement with new terms as they are parsed.
+     *
+     * @brief increment - Increments parsing by a step.
      * @return Returns the result of the increment operation, including if an
      * error occured or if parsing is finished.
      */
+    // NOLINTNEXTLINE
     auto increment() -> IncrementResult
     {
-        if (!statement.valid())
+        if (statementDepthStack.empty() || statementDepthStack.top() == nullptr
+            || !statementDepthStack.top()->valid())
         {
             return IncrementResult::Error;
         }
@@ -157,7 +188,7 @@ private:
 
         switch (state)
         {
-        case ParseState::None:
+        case ParseState::OpenedStatement:
             switch (type)
             {
             case StatementCharacterType::MathOperator:
@@ -170,46 +201,101 @@ private:
                 state = ParseState::NumberPostDecimal;
                 numberStartIndex = currentIndex;
                 break;
+            case StatementCharacterType::OpenParenthesis:
+            {
+                auto& topLevelStatement = *statementDepthStack.top();
+                assert(!mathOp.has_value() && topLevelStatement.empty());
+
+                statementDepthStack.push(&topLevelStatement.reset(MathStatement{
+                }));
+                break;
+            }
+            case StatementCharacterType::CloseParenthesis:
+                // Empty groups are invalid
+                return IncrementResult::Error;
+            }
+            break;
+        case ParseState::ClosedStatement:
+            switch (type)
+            {
+            case StatementCharacterType::MathOperator:
+                mathOp = parseOperator(currentChar).value();
+                state = ParseState::Operator;
+                break;
+            case StatementCharacterType::CloseParenthesis:
+                // We cannot close if we have no remaining open statements.
+                // At the bottom of the stack is the first statement, and it has
+                // no open Parenthesis so we cannot pop that either.
+                if (statementDepthStack.size() <= 1)
+                {
+                    return IncrementResult::Error;
+                }
+                statementDepthStack.pop();
+                break;
+            default:
+                return IncrementResult::Error;
             }
             break;
         case ParseState::NumberPreDecimal:
             switch (type)
             {
-            case StatementCharacterType::MathOperator:
-            {
-                double const number = std::stod(trimmed.substr(
-                    numberStartIndex, currentIndex - numberStartIndex
-                ));
-
-                if (mathOp.has_value())
-                {
-                    statement.append(mathOp.value()) = number;
-                }
-                else if (!statement.empty())
-                {
-                    return IncrementResult::Error;
-                }
-                else
-                {
-                    statement.reset(number);
-                }
-
-                mathOp = parseOperator(currentChar).value();
-                state = ParseState::Operator;
-                break;
-            }
             case StatementCharacterType::Digit:
                 break;
             case StatementCharacterType::Decimal:
                 state = ParseState::NumberPostDecimal;
                 break;
+            case StatementCharacterType::MathOperator:
+            case StatementCharacterType::CloseParenthesis:
+            {
+                double const number = std::stod(trimmed.substr(
+                    numberStartIndex, currentIndex - numberStartIndex
+                ));
+
+                auto& topLevelStatement = *statementDepthStack.top();
+                if (!topLevelStatement.empty() && mathOp == std::nullopt)
+                {
+                    // This case occurs when the statement looks like (NUMBER1
+                    // NUMBER2). Generally impossible since we cannot start a
+                    // number after a number, but we check.
+                    return IncrementResult::Error;
+                }
+                if (mathOp.has_value())
+                {
+                    topLevelStatement.append(mathOp.value()) = number;
+                }
+                else
+                {
+                    topLevelStatement.reset(number);
+                }
+
+                if (type == StatementCharacterType::MathOperator)
+                {
+                    mathOp = parseOperator(currentChar).value();
+                    state = ParseState::Operator;
+                }
+                else
+                {
+                    assert(type == StatementCharacterType::CloseParenthesis);
+
+                    if (statementDepthStack.size() == 1)
+                    {
+                        return IncrementResult::Error;
+                    }
+
+                    statementDepthStack.pop();
+
+                    mathOp = std::nullopt;
+                    state = ParseState::ClosedStatement;
+                }
+                break;
+            }
+            default:
+                return IncrementResult::Error;
             }
             break;
         case ParseState::Operator:
             switch (type)
             {
-            case StatementCharacterType::MathOperator:
-                return IncrementResult::Error;
             case StatementCharacterType::Digit:
                 state = ParseState::NumberPreDecimal;
                 numberStartIndex = currentIndex;
@@ -218,58 +304,106 @@ private:
                 state = ParseState::NumberPostDecimal;
                 numberStartIndex = currentIndex;
                 break;
+            case StatementCharacterType::OpenParenthesis:
+            {
+                // Valid parantheses occur after an operator e.g. 0 + (1 + 2)
+                // This is narrow but we can expand later
+                if (mathOp == std::nullopt)
+                {
+                    return IncrementResult::Error;
+                }
+                assert(!statementDepthStack.empty());
+
+                auto* deeperStatement =
+                    &statementDepthStack.top()->appendStatement(mathOp.value());
+
+                statementDepthStack.push(deeperStatement);
+
+                mathOp = std::nullopt;
+                state = ParseState::OpenedStatement;
+                break;
+            }
+            default:
+                return IncrementResult::Error;
             }
             break;
         case ParseState::NumberPostDecimal:
             switch (type)
             {
+            case StatementCharacterType::Digit:
+                break;
             case StatementCharacterType::MathOperator:
+            case StatementCharacterType::CloseParenthesis:
             {
-                // TODO: this is duplicated from NumberPreDecimal transition,
-                // the states should probably be combined with pre/post decimal
-                // being a boolean flag as part of the state
                 double const number = std::stod(trimmed.substr(
                     numberStartIndex, currentIndex - numberStartIndex
                 ));
 
+                auto& topLevelStatement = *statementDepthStack.top();
+                if (!topLevelStatement.empty() && mathOp == std::nullopt)
+                {
+                    // This case occurs when the statement looks like (NUMBER1
+                    // NUMBER2). Generally impossible since we cannot start a
+                    // number after a number, but we check.
+                    return IncrementResult::Error;
+                }
                 if (mathOp.has_value())
                 {
-                    statement.append(mathOp.value()) = number;
-                }
-                else if (!statement.empty())
-                {
-                    return IncrementResult::Error;
+                    topLevelStatement.append(mathOp.value()) = number;
                 }
                 else
                 {
-                    statement.reset(number);
+                    topLevelStatement.reset(number);
                 }
 
-                mathOp = parseOperator(currentChar).value();
-                state = ParseState::Operator;
+                if (type == StatementCharacterType::MathOperator)
+                {
+                    mathOp = parseOperator(currentChar).value();
+                    state = ParseState::Operator;
+                }
+                else
+                {
+                    assert(type == StatementCharacterType::CloseParenthesis);
+
+                    if (statementDepthStack.size() == 1)
+                    {
+                        return IncrementResult::Error;
+                    }
+
+                    statementDepthStack.pop();
+
+                    mathOp = std::nullopt;
+                    state = ParseState::ClosedStatement;
+                }
                 break;
             }
-            case StatementCharacterType::Digit:
-                break;
-            case StatementCharacterType::Decimal:
+            default:
                 return IncrementResult::Error;
             }
-            break;
         }
 
         return IncrementResult::Continue;
     }
 
     /**
-     * @brief increment - Increments the index into the math statement string,
-     * and transitions the state.
+     * There is usually dangling state to clean-up, such as when equations end
+     * in a digit. This method finishes parsing all that, and returns the final
+     * MathStatement if valid.
+     *
+     * @brief finish - Returns the final result of parsing.
      * @return Returns whether or not the result is valid.
      */
     auto finish() -> std::optional<MathStatement>
     {
+        if (statementDepthStack.size() != 1)
+        {
+            return std::nullopt;
+        }
+
         switch (state)
         {
-        case ParseState::None:
+        case ParseState::OpenedStatement:
+        case ParseState::ClosedStatement:
             break;
         case ParseState::NumberPreDecimal:
         case ParseState::NumberPostDecimal:
@@ -280,17 +414,21 @@ private:
                     trimmed.substr(numberStartIndex, index - numberStartIndex)
                 );
 
+                auto& topLevelStatement = *statementDepthStack.top();
+                if (!topLevelStatement.empty() && mathOp == std::nullopt)
+                {
+                    // This case occurs when the statement looks like (NUMBER1
+                    // NUMBER2). Generally impossible since we cannot start a
+                    // number after a number, but we check.
+                    return std::nullopt;
+                }
                 if (mathOp.has_value())
                 {
-                    statement.append(mathOp.value()) = number;
-                }
-                else if (!statement.empty())
-                {
-                    return std::nullopt;
+                    topLevelStatement.append(mathOp.value()) = number;
                 }
                 else
                 {
-                    statement.reset(number);
+                    topLevelStatement.reset(number);
                 }
             }
             catch (std::invalid_argument const& e)
@@ -307,27 +445,35 @@ private:
             return std::nullopt;
         }
 
-        if (!statement.valid())
+        if (!statementDepthStack.top()->valid())
         {
             return std::nullopt;
         }
 
-        return std::move(statement);
+        return std::move(*statementDepthStack.top());
     }
 
     std::string const trimmed;
 
-    MathStatement statement;
+    /**
+     * We store the root-level statement as a value that gets default
+     * destructed. statementDepthStack[0] contains a pointer to rootStatement,
+     * and should generally be modified there.
+     */
+    MathStatement rootStatement;
 
-    enum class ParseState : uint8_t
-    {
-        None,
-        NumberPreDecimal,
-        NumberPostDecimal,
-        Operator,
-    };
+    /**
+     * A MathStatement is a tree-like structure, where individual terms can be
+     * statements. As we build statements and add terms, we store a stack of the
+     * path to the current deepest statement we are building.
+     *
+     * The stack should always have at least one element: the root statement at
+     * index 0. Keeping this pointer to rootStatement simplifies
+     * some of the access logic.
+     */
+    std::stack<MathStatement*> statementDepthStack;
 
-    ParseState state{ParseState::None};
+    ParseState state{ParseState::OpenedStatement};
     size_t numberStartIndex{0};
     size_t index{0};
     std::optional<MathOp> mathOp;
@@ -573,12 +719,29 @@ void MathStatement::reset(MathTerm&& initial)
     m_terms.push_back(std::make_unique<MathTerm>(std::move(initial)));
 }
 
+auto MathStatement::reset(MathStatement&& initial) -> MathStatement&
+{
+    m_terms.clear();
+    m_operators.clear();
+
+    m_terms.push_back(std::make_unique<MathTerm>(std::move(initial)));
+
+    return std::get<MathStatement>(*m_terms.back());
+}
+
 auto MathStatement::append(MathOp mathOp) -> MathTerm&
 {
     m_terms.push_back(std::make_unique<MathTerm>(0.0));
     m_operators.push_back(mathOp);
 
     return *m_terms.back();
+}
+
+auto MathStatement::appendStatement(MathOp mathOp) -> MathStatement&
+{
+    auto& term = append(mathOp);
+    term = MathStatement();
+    return std::get<MathStatement>(term);
 }
 
 auto MathStatement::stringTerm(size_t index) const -> std::string

@@ -60,6 +60,7 @@ public:
     [[nodiscard]] auto length() const -> size_t;
 
     void reset(MathTerm&& initial);
+    auto reset(MathStatement&& initial) -> MathStatement&;
 
     /**
      * @brief append - Append a new term prepended by an operator
@@ -67,6 +68,7 @@ public:
      * PEMDAS order applies to the overall statement.
      */
     [[nodiscard]] auto append(MathOp mathOp) -> MathTerm&;
+    [[nodiscard]] auto appendStatement(MathOp mathOp) -> MathStatement&;
 
 private:
     [[nodiscard]] auto stringTerm(size_t index) const -> std::string;
@@ -79,8 +81,6 @@ private:
 };
 
 /**
- * Note: parantheses are not yet supported.
- *
  * Parses the given plaintext string, evaluating it as a mathematical
  * statement, with the following grammar:
  *
@@ -94,7 +94,7 @@ private:
  *
  * Whitespace is eliminated and has no impact on the parsing or evaluation.
  * Mathematical evaluation uses standard BEDMAS/PEMDAS order. Thus
- * evaluation is depth first, with nesting indicated by paranthesis.
+ * evaluation is depth first, with nesting indicated by parenthesis.
  */
 class MathInterpreter
 {

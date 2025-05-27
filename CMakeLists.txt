@@ -3,7 +3,7 @@ project(CalQ LANGUAGES CXX)
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Test)
 
-set(CMAKE_CXX_FLAGS "-Werror")
+set(CMAKE_CXX_FLAGS "-Werror -Wimplicit-fallthrough -Wall -Wextra")
 
 qt_standard_project_setup()
 
