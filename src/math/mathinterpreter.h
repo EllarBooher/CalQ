@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <expected>
 #include <optional>
-#include <span>
 #include <string>
 #include <vector>
 
@@ -22,22 +21,11 @@ enum class MathOp : uint8_t
     Divide
 };
 
+using MathTerm = double;
+
 class MathStatement
 {
 public:
-    explicit MathStatement(
-        std::vector<double> terms, std::vector<MathOp> operators
-    );
-
-    [[nodiscard]] auto terms() const -> std::span<double const>
-    {
-        return m_terms;
-    }
-    [[nodiscard]] auto operators() const -> std::span<MathOp const>
-    {
-        return m_operators;
-    }
-
     [[nodiscard]] auto valid() const -> bool
     {
         return (
@@ -45,15 +33,26 @@ public:
             || m_operators.size() == m_terms.size() - 1
         );
     }
-    [[nodiscard]] auto empty() const -> bool
-    {
-        return m_terms.empty() || m_operators.empty();
-    }
+    [[nodiscard]] auto empty() const -> bool { return length() == 0; }
 
     auto operator==(MathStatement const& rhs) const -> bool;
+    [[nodiscard]] auto string() const -> std::string;
+    [[nodiscard]] auto evaluate() const -> std::optional<double>;
+
+    [[nodiscard]] auto length() const -> size_t;
+
+    void reset(MathTerm initial);
+
+    /**
+     * @brief append - Append a new term prepended by an operator
+     * @param mathOp - The binary operator that will come before the term.
+     * PEMDAS order applies to the overall statement.
+     */
+    [[nodiscard]] auto append(MathOp mathOp) -> MathTerm&;
 
 private:
-    std::vector<double> m_terms;
+    // A valid statement interleaves terms and operators, or is completely empty
+    std::vector<MathTerm> m_terms;
     std::vector<MathOp> m_operators;
 };
 
@@ -92,8 +91,6 @@ public:
 
     static auto parse(std::string const& rawInput)
         -> std::optional<MathStatement>;
-    static auto evaluate(MathStatement const& statement)
-        -> std::optional<double>;
 
     /**
      * @brief interpret - Parses user input as a mathematical statement and

@@ -136,8 +136,7 @@ private:
      */
     auto increment() -> IncrementResult
     {
-        if (operators.size() != terms.size()
-            && !(operators.empty() && terms.empty()))
+        if (!statement.valid())
         {
             return IncrementResult::Error;
         }
@@ -177,12 +176,28 @@ private:
             switch (type)
             {
             case StatementCharacterType::MathOperator:
-                terms.push_back(std::stod(trimmed.substr(
+            {
+                double const number = std::stod(trimmed.substr(
                     numberStartIndex, currentIndex - numberStartIndex
-                )));
-                operators.push_back(parseOperator(currentChar).value());
+                ));
+
+                if (mathOp.has_value())
+                {
+                    statement.append(mathOp.value()) = number;
+                }
+                else if (!statement.empty())
+                {
+                    return IncrementResult::Error;
+                }
+                else
+                {
+                    statement.reset(number);
+                }
+
+                mathOp = parseOperator(currentChar).value();
                 state = ParseState::Operator;
                 break;
+            }
             case StatementCharacterType::Digit:
                 break;
             case StatementCharacterType::Decimal:
@@ -209,12 +224,31 @@ private:
             switch (type)
             {
             case StatementCharacterType::MathOperator:
-                terms.push_back(std::stod(trimmed.substr(
+            {
+                // TODO: this is duplicated from NumberPreDecimal transition,
+                // the states should probably be combined with pre/post decimal
+                // being a boolean flag as part of the state
+                double const number = std::stod(trimmed.substr(
                     numberStartIndex, currentIndex - numberStartIndex
-                )));
-                operators.push_back(parseOperator(currentChar).value());
+                ));
+
+                if (mathOp.has_value())
+                {
+                    statement.append(mathOp.value()) = number;
+                }
+                else if (!statement.empty())
+                {
+                    return IncrementResult::Error;
+                }
+                else
+                {
+                    statement.reset(number);
+                }
+
+                mathOp = parseOperator(currentChar).value();
                 state = ParseState::Operator;
                 break;
+            }
             case StatementCharacterType::Digit:
                 break;
             case StatementCharacterType::Decimal:
@@ -233,14 +267,31 @@ private:
      */
     auto finish() -> std::optional<MathStatement>
     {
-        if (state == ParseState::NumberPreDecimal
-            || state == ParseState::NumberPostDecimal)
+        switch (state)
+        {
+        case ParseState::None:
+            break;
+        case ParseState::NumberPreDecimal:
+        case ParseState::NumberPostDecimal:
         {
             try
             {
-                terms.push_back(std::stod(
+                double const number = std::stod(
                     trimmed.substr(numberStartIndex, index - numberStartIndex)
-                ));
+                );
+
+                if (mathOp.has_value())
+                {
+                    statement.append(mathOp.value()) = number;
+                }
+                else if (!statement.empty())
+                {
+                    return std::nullopt;
+                }
+                else
+                {
+                    statement.reset(number);
+                }
             }
             catch (std::invalid_argument const& e)
             {
@@ -250,9 +301,11 @@ private:
             {
                 return std::nullopt;
             }
+            break;
         }
-
-        MathStatement statement{terms, operators};
+        default:
+            return std::nullopt;
+        }
 
         if (!statement.valid())
         {
@@ -264,8 +317,7 @@ private:
 
     std::string const trimmed;
 
-    std::vector<double> terms;
-    std::vector<MathOp> operators;
+    MathStatement statement;
 
     enum class ParseState : uint8_t
     {
@@ -278,6 +330,7 @@ private:
     ParseState state{ParseState::None};
     size_t numberStartIndex{0};
     size_t index{0};
+    std::optional<MathOp> mathOp;
 };
 
 auto MathInterpreter::parse(std::string const& rawInput)
@@ -287,25 +340,97 @@ auto MathInterpreter::parse(std::string const& rawInput)
     return parser.execute();
 }
 
-auto MathInterpreter::evaluate(MathStatement const& statement)
-    -> std::optional<double>
+auto MathInterpreter::interpret(std::string const& rawInput)
+    -> std::expected<double, MathInterpretationError>
 {
-    if (!statement.valid())
+    auto const parsed = parse(rawInput);
+    if (!parsed.has_value())
+    {
+        return std::unexpected(MathInterpretationError::ParseError);
+    }
+
+    MathStatement const& statement = parsed.value();
+    auto const evaluated = statement.evaluate();
+    if (!evaluated.has_value())
+    {
+        return std::unexpected(MathInterpretationError::EvaluationError);
+    }
+
+    auto const result = evaluated.value();
+
+    return result;
+}
+
+auto MathStatement::operator==(MathStatement const& rhs) const -> bool
+{
+    return m_terms == rhs.m_terms && m_operators == rhs.m_operators;
+}
+
+namespace
+{
+auto mathOperatorToString(MathOp const mathOp) -> char const*
+{
+    switch (mathOp)
+    {
+    case MathOp::Plus:
+        return "+";
+    case MathOp::Minus:
+        return "-";
+    case MathOp::Multiply:
+        return "*";
+    case MathOp::Divide:
+        return "/";
+    }
+
+    return "?";
+}
+} // namespace
+
+auto MathStatement::string() const -> std::string
+{
+    if (!valid())
+    {
+        return "Invalid";
+    }
+
+    if (empty())
+    {
+        return "Empty";
+    }
+
+    std::string output{};
+
+    output += std::to_string(m_terms[0]);
+    for (size_t i = 0; i < m_operators.size(); i++)
+    {
+        output += ',';
+        output += mathOperatorToString(m_operators[i]);
+        output += ',';
+        output += std::to_string(m_terms[i + 1]);
+    }
+
+    return output;
+}
+
+auto MathStatement::evaluate() const -> std::optional<double>
+{
+    if (!valid())
     {
         return std::nullopt;
     }
 
-    if (statement.empty())
+    if (empty())
     {
         return 0.0;
     }
 
-    std::deque<double> terms{
-        statement.terms().begin(), statement.terms().end()
-    };
-    std::deque<MathOp> operators{
-        statement.operators().begin(), statement.operators().end()
-    };
+    if (m_terms.size() == 1)
+    {
+        return m_terms[0];
+    }
+
+    std::deque<MathTerm> terms{m_terms.begin(), m_terms.end()};
+    std::deque<MathOp> operators{m_operators.begin(), m_operators.end()};
 
     // Reduce while evaluating operators for adjacent terms.
     // Multiplication and division first
@@ -365,36 +490,19 @@ auto MathInterpreter::evaluate(MathStatement const& statement)
     return terms[0];
 }
 
-auto MathInterpreter::interpret(std::string const& rawInput)
-    -> std::expected<double, MathInterpretationError>
+auto MathStatement::length() const -> size_t { return m_terms.size(); }
+
+void MathStatement::reset(MathTerm initial)
 {
-    auto const parsed = parse(rawInput);
-    if (!parsed.has_value())
-    {
-        return std::unexpected(MathInterpretationError::ParseError);
-    }
+    m_terms.clear();
+    m_operators.clear();
 
-    MathStatement const& statement = parsed.value();
-    auto const evaluated = evaluate(statement);
-    if (!evaluated.has_value())
-    {
-        return std::unexpected(MathInterpretationError::EvaluationError);
-    }
-
-    auto const result = evaluated.value();
-
-    return result;
+    m_terms.push_back(initial);
 }
 
-MathStatement::MathStatement(
-    std::vector<double> terms, std::vector<MathOp> operators
-)
-    : m_terms(std::move(terms))
-    , m_operators(std::move(operators))
+auto MathStatement::append(MathOp mathOp) -> MathTerm&
 {
-}
-
-auto MathStatement::operator==(MathStatement const& rhs) const -> bool
-{
-    return m_terms == rhs.m_terms && m_operators == rhs.m_operators;
+    m_operators.push_back(mathOp);
+    m_terms.push_back(0.0);
+    return m_terms.back();
 }

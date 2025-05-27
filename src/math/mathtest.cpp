@@ -5,7 +5,6 @@
 #include <QString>
 #include <QTest>
 
-#include <cstddef>
 #include <expected>
 #include <optional>
 #include <string>
@@ -19,45 +18,9 @@ private slots:
     static void test();
 };
 
-namespace
-{
-auto mathOperatorToString(MathOp const mathOp) -> char const*
-{
-    switch (mathOp)
-    {
-    case MathOp::Plus:
-        return "+";
-    case MathOp::Minus:
-        return "-";
-    case MathOp::Multiply:
-        return "*";
-    case MathOp::Divide:
-        return "/";
-    }
-
-    return "?";
-}
-} // namespace
-
 template <> auto QTest::toString(MathStatement const& statement) -> char*
 {
-    QString output{};
-
-    if (!statement.valid() || statement.terms().empty())
-    {
-        output += "Invalid";
-    }
-    else
-    {
-        output += QString::number(statement.terms()[0]);
-        for (size_t i = 0; i < statement.operators().size(); i++)
-        {
-            output += ',';
-            output += mathOperatorToString(statement.operators()[i]);
-            output += ',';
-            output += QString::number(statement.terms()[i + 1]);
-        }
-    }
+    QString const output = QString::fromStdString(statement.string());
 
     QByteArray const bytes = output.toUtf8();
 
@@ -88,159 +51,90 @@ namespace
 {
 void testParse()
 {
-    std::vector<std::tuple<std::string, std::optional<MathStatement>>> const
-        parseTestCases{
-            {"0+1",
-             MathStatement{
-                 {0.0, 1.0},
-                 {MathOp::Plus},
-             }},
-            {"0+1-2*3/4",
-             MathStatement{
-                 {0.0, 1.0, 2.0, 3.0, 4.0},
-                 {MathOp::Plus, MathOp::Minus, MathOp::Multiply, MathOp::Divide
-                 },
-             }},
-            {"0-1+2/3*4",
-             MathStatement{
-                 {0.0, 1.0, 2.0, 3.0, 4.0},
-                 {MathOp::Minus, MathOp::Plus, MathOp::Divide, MathOp::Multiply
-                 },
-             }},
-            {"0.1234+3.4567",
-             MathStatement{
-                 {0.1234, 3.4567},
-                 {MathOp::Plus},
-             }},
-            {"0.+0+0.0+0.0000000000000000000000000000000000000000000000",
-             MathStatement{
-                 {0.0, 0.0, 0.0, 0.0},
-                 {MathOp::Plus, MathOp::Plus, MathOp::Plus},
-             }},
-            {"123456789.123456789+123456789.123456789",
-             MathStatement{
-                 {123456789.123456789, 123456789.123456789},
-                 {MathOp::Plus},
-             }},
-            {"0..0+0", std::nullopt},
-            {"0..+0", std::nullopt},
-            {"0+0..0", std::nullopt},
-            {"0+0..", std::nullopt},
-            {".", std::nullopt},
-            {"..", std::nullopt},
-            {"+-*/", std::nullopt},
-            {"0+", std::nullopt},
-            {"+0", std::nullopt},
-            {"++", std::nullopt},
-            {"+", std::nullopt},
-            {"0-", std::nullopt},
-            {"-0", std::nullopt},
-            {"--", std::nullopt},
-            {"-", std::nullopt},
-            {"0*", std::nullopt},
-            {"*0", std::nullopt},
-            {"**", std::nullopt},
-            {"*", std::nullopt},
-            {"0/", std::nullopt},
-            {"/0", std::nullopt},
-            {"//", std::nullopt},
-            {"/", std::nullopt},
-        };
-    for (auto const& [input, output] : parseTestCases)
+    std::vector<std::string> const invalidTestCases{
+        "0..0+0", "0..+0", "0+0..0", "0+0..", ".",  "..", "+-*/", "0+",
+        "+0",     "++",    "+",      "0-",    "-0", "--", "-",    "0*",
+        "*0",     "**",    "*",      "0/",    "/0", "//", "/",
+    };
+
+    for (auto const& input : invalidTestCases)
     {
-        QCOMPARE(MathInterpreter::parse(input), output);
+        QCOMPARE(MathInterpreter::parse(input), std::nullopt);
+    }
+
+    std::vector<std::tuple<std::string, size_t>> const termCountCases{
+        {"", 0}, {"1", 1}, {"123", 1}, {"1+2", 2}, {"123+456", 2}
+    };
+    for (auto const& [input, termCount] : termCountCases)
+    {
+        auto const statementResult{MathInterpreter::parse(input)};
+        QVERIFY(statementResult.has_value());
+
+        auto const& statement{statementResult.value()};
+        QCOMPARE(statement.length(), termCount);
+        QVERIFY(statement.empty() == (termCount == 0));
     }
 }
 
 void testWhitespace()
 {
-    std::vector<std::tuple<std::vector<std::string>, MathStatement>> const
-        whitespaceParseCases{
-            {{"0-1+2/3*4",
-              " 0 - 1 + 2 / 3 * 4 ",
-              "   0   -  1  +  2  /  3  *  4  ",
-              "0-1  +2/3  *4",
-              "0  -1+2  /3*4",
-              "  0-1  +2/3*4",
-              "0  -1+2/3*4  ",
-              "\n0\n-\n1\n+\n2\n/\n3\n*\n4\n"},
-             MathStatement{
-                 {0.0, 1.0, 2.0, 3.0, 4.0},
-                 {MathOp::Minus, MathOp::Plus, MathOp::Divide, MathOp::Multiply
-                 },
-             }}
-        };
-    for (auto const& [inputs, output] : whitespaceParseCases)
+    std::vector<std::string> const whitespaceParseCases{
+        " 0 - 1 + 2 / 3 * 4 ",
+        "   0   -  1  +  2  /  3  *  4  ",
+        "0-1  +2/3  *4",
+        "0  -1+2  /3*4",
+        "  0-1  +2/3*4",
+        "0  -1+2/3*4  ",
+        "\n0\n-\n1\n+\n2\n/\n3\n*\n4\n",
+    };
+    auto const exemplar{MathInterpreter::parse("0-1+2/3*4")};
+    for (auto const& input : whitespaceParseCases)
     {
-        for (auto const& input : inputs)
-        {
-            QCOMPARE(MathInterpreter::parse(input), output);
-        }
+        QCOMPARE(MathInterpreter::parse(input), exemplar);
     }
 }
 
-void testEvaluation()
+void testInterpret()
 {
-    std::vector<std::tuple<MathStatement, std::optional<double>>> const
-        evaluateTestCases{
-            {MathStatement{{0.0}, {MathOp::Plus}}, std::nullopt},
-            {MathStatement{{0.0, 0.0}, {MathOp::Plus}}, 0.0},
-            {MathStatement{{1.0, 0.0}, {MathOp::Plus}}, 1.0},
-            {MathStatement{{0.0, 2.0}, {MathOp::Plus}}, 2.0},
-            {MathStatement{{1.0, 2.0}, {MathOp::Divide}}, 0.5},
-            {MathStatement{{1.0, 3.0}, {MathOp::Divide}}, 1.0 / 3.0},
-            {MathStatement{
-                 {1.0, 2.0, 3.0, 4.0, 5.0},
-                 {MathOp::Multiply,
-                  MathOp::Multiply,
-                  MathOp::Multiply,
-                  MathOp::Multiply}
-             },
-             1.0 * 2.0 * 3.0 * 4.0 * 5.0},
+    // These cases are lacking and should be expanded
+    std::vector<std::tuple<std::string, double>> const successTestCases{
+        {"5", 5.0},
+        {"12345", 12345.0},
+        {"0+0", 0.0},
+        {"1+0", 1.0},
+        {"0+2", 2.0},
+        {"1/2", 0.5},
+        {"1/3", 1.0 / 3.0},
+        {"1*2*3*4*5", 1.0 * 2.0 * 3.0 * 4.0 * 5.0},
+    };
 
-        };
-    for (auto const& [input, output] : evaluateTestCases)
+    for (auto const& [input, output] : successTestCases)
     {
-        QCOMPARE(MathInterpreter::evaluate(input), output);
+        QCOMPARE(MathInterpreter::interpret(input), output);
+    }
+
+    std::vector<std::tuple<std::string, MathInterpretationError>> const
+        failureTestCases{
+            {"0+", MathInterpretationError::ParseError},
+        };
+
+    for (auto const& [input, output] : failureTestCases)
+    {
+        QCOMPARE(MathInterpreter::interpret(input), std::unexpected(output));
     }
 }
 
 void testOrderOfOperators()
 {
-    std::vector<std::tuple<std::vector<MathOp>, double>> const PEMDASTestCases{
-        {{
-             MathOp::Multiply,
-             MathOp::Plus,
-             MathOp::Divide,
-             MathOp::Minus,
-         },
-         (1.0 * 2.0) + (3.0 / 4.0) - 5.0},
-        {{
-             MathOp::Minus,
-             MathOp::Multiply,
-             MathOp::Plus,
-             MathOp::Divide,
-         },
-         1.0 - (2.0 * 3.0) + (4.0 / 5.0)},
-        {{
-             MathOp::Divide,
-             MathOp::Minus,
-             MathOp::Multiply,
-             MathOp::Plus,
-         },
-         (1.0 / 2.0) - (3.0 * 4.0) + 5.0},
-        {{
-             MathOp::Plus,
-             MathOp::Divide,
-             MathOp::Minus,
-             MathOp::Multiply,
-         },
-         1.0 + (2.0 / 3.0) - (4.0 * 5.0)},
+    std::vector<std::tuple<std::string, double>> const PEMDASTestCases{
+        {"1 * 2 + 3 / 4 - 5", (1.0 * 2.0) + (3.0 / 4.0) - 5.0},
+        {"1 - 2 * 3 + 4 / 5", 1.0 - (2.0 * 3.0) + (4.0 / 5.0)},
+        {"1 / 2 - 3 * 4 + 5", (1.0 / 2.0) - (3.0 * 4.0) + 5.0},
+        {"1 + 2 / 3 - 4 * 5", 1.0 + (2.0 / 3.0) - (4.0 * 5.0)},
     };
-    for (auto const& [ops, output] : PEMDASTestCases)
+    for (auto const& [input, output] : PEMDASTestCases)
     {
-        MathStatement const testStatement{{1.0, 2.0, 3.0, 4.0, 5.0}, ops};
-        QCOMPARE(MathInterpreter::evaluate(testStatement), output);
+        QCOMPARE(MathInterpreter::interpret(input), output);
     }
 }
 
@@ -250,7 +144,7 @@ void TestMathInterpreter::test()
 {
     testParse();
     testWhitespace();
-    testEvaluation();
+    testInterpret();
     testOrderOfOperators();
 }
 
