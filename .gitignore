@@ -83,3 +83,6 @@ CMakeLists.txt.user*
 
 # VSCode user specific files
 .vscode
+
+# Virtualenv python environment
+.venv
