@@ -2,6 +2,7 @@
 
 #include <deque>
 #include <stack>
+#include <utility>
 #include <variant>
 
 template <class... Ts> struct overloads : Ts...
@@ -23,9 +24,8 @@ auto tokenToOperator(calqmath::TokenOperator const token) -> calqmath::BinaryOp
         return calqmath::BinaryOp::Multiply;
     case calqmath::TokenOperator::Divide:
         return calqmath::BinaryOp::Divide;
-    default:
-        assert(false);
     }
+    std::unreachable();
 }
 } // namespace
 
