@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <format>
+#include <numbers>
 #include <utility>
 
 namespace calqmath

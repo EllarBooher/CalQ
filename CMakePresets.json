@@ -24,7 +24,6 @@
     {
       "name": "vcpkg",
       "binaryDir": "${sourceDir}/build/${presetName}",
-      "generator": "Ninja Multi-Config",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
       },
@@ -43,7 +42,15 @@
       "hidden": true
     },
     {
+      "name": "msvc-flags",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS_INIT": "/Wall /WX"
+      },
+      "hidden": true
+    },
+    {
       "name": "vcpkg-linux",
+      "generator": "Ninja Multi-Config",
       "cacheVariables": {
         "VCPKG_TARGET_TRIPLET": "x64-linux"
       },
@@ -51,6 +58,7 @@
     },
     {
       "name": "vcpkg-mingw-static",
+      "generator": "Ninja Multi-Config",
       "cacheVariables": {
         "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/toolchains/mingw.cmake",
         "VCPKG_TARGET_ARCHITECTURE": "x64",
@@ -60,12 +68,46 @@
       "hidden": true
     },
     {
+      "name": "vcpkg-msvc-static-md",
+      "generator": "Visual Studio 17 2022",
+      "cacheVariables": {
+        "VCPKG_CRT_LINKAGE": "dynamic",
+        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/toolchains/windows.cmake",
+        "VCPKG_TARGET_ARCHITECTURE": "x64",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static-md",
+        "VCPKG_HOST_TRIPLET": "x64-windows-static-md"
+      },
+      "hidden": true
+    },
+    {
       "name": "x64-linux",
-      "inherits": ["vcpkg", "build", "clang-gcc-flags", "cmake-pedantic", "vcpkg-linux"]
+      "inherits": [
+        "vcpkg",
+        "build",
+        "clang-gcc-flags",
+        "cmake-pedantic",
+        "vcpkg-linux"
+      ]
     },
     {
       "name": "x64-windows-mingw",
-      "inherits": ["vcpkg","build","clang-gcc-flags","cmake-pedantic","vcpkg-mingw-static"]
+      "inherits": [
+        "vcpkg",
+        "build",
+        "clang-gcc-flags",
+        "cmake-pedantic",
+        "vcpkg-mingw-static"
+      ]
+    },
+    {
+      "name": "x64-windows-msvc",
+      "inherits": [
+        "vcpkg",
+        "build",
+        "msvc-flags",
+        "cmake-pedantic",
+        "vcpkg-msvc-static-md"
+      ]
     }
   ]
 }

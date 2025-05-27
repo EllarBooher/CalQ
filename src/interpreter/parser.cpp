@@ -59,7 +59,7 @@ auto calqmath::Parser::parse(
     auto const visitors{overloads{
         [&](TokenOperator const& token)
     {
-        if (expectNewTerm)
+        if (expectNewTerm && !tokens.empty())
         {
             // Unary negative sign e.g. make a number negative
             if (token == TokenOperator::Minus

@@ -51,7 +51,7 @@ auto trim(std::string const& rawInput) -> std::deque<char>
 auto popTokenOffFront(std::deque<char>& trimmed)
     -> std::optional<calqmath::Token>
 {
-    static std::string constexpr digits{"0123456789"};
+    static std::string const digits{"0123456789"};
     static char constexpr decimal{'.'};
 
     auto const character = trimmed.front();
