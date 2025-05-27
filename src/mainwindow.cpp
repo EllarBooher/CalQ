@@ -1,6 +1,5 @@
 #include "mainwindow.h"
 #include "math/mathinterpreter.h"
-#include "math/mathstringify.h"
 #include "ui_mainwindow.h"
 
 #include <QLineEdit>
@@ -46,12 +45,12 @@ MainWindow::~MainWindow() = default;
 namespace
 {
 auto toString(
-    std::expected<calqmath::Scalar, calqmath::InterpretError> const result
+    std::expected<calqmath::Scalar, calqmath::InterpretError> const& result
 ) -> QString
 {
     if (result.has_value())
     {
-        return QString::fromStdString(calqmath::toString(result.value()));
+        return QString::fromStdString(result.value().toString());
     }
 
     switch (result.error())

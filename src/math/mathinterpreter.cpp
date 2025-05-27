@@ -1,7 +1,7 @@
 #include "mathinterpreter.h"
 
+#include "backend/number.h"
 #include "mathstatementparser.h"
-#include "number.h"
 #include <cassert>
 #include <cctype>
 #include <expected>

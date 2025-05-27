@@ -1,7 +1,6 @@
 #include "mathstatement.h"
 
 #include "mathfunction.h"
-#include "mathstringify.h"
 #include <cassert>
 #include <cctype>
 #include <cstddef>
@@ -128,7 +127,6 @@ auto Statement::string() const -> std::string
 
 auto Statement::evaluate() const -> std::optional<Scalar>
 {
-
     if (!valid())
     {
         return std::nullopt;
@@ -136,7 +134,7 @@ auto Statement::evaluate() const -> std::optional<Scalar>
 
     if (empty())
     {
-        return 0.0;
+        return Scalar{"0.0"};
     }
 
     std::deque<Scalar> terms{};
@@ -248,7 +246,7 @@ void Statement::setFunction(UnaryFunction&& function)
 
 auto Statement::append(BinaryOp mathOp) -> Term&
 {
-    m_terms.push_back(std::make_unique<Term>(0.0));
+    m_terms.push_back(std::make_unique<Term>(Scalar{"0.0"}));
     m_operators.push_back(mathOp);
 
     return *m_terms.back();
@@ -266,7 +264,7 @@ auto Statement::stringTerm(size_t index) const -> std::string
     assert(index < m_terms.size() || m_terms[index] != nullptr);
 
     auto const visitor = overloads{
-        [](Scalar const& number) { return calqmath::toString(number); },
+        [](Scalar const& number) { return number.toString(); },
         [](Statement const& statement)
     { return "(" + statement.string() + ")"; },
     };

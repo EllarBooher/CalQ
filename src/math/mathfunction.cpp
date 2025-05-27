@@ -1,5 +1,6 @@
 #include "mathfunction.h"
 
+#include "backend/functions.h"
 #include <cmath>
 
 #define UNARY(name, input, output)                                             \
@@ -12,8 +13,8 @@ namespace calqmath
 FunctionDatabase::FunctionDatabase()
 {
     m_unaryFunctions = std::map<std::string, UnaryFunction>{
-        UNARY("id", x, x),
-        UNARY("sqrt", x, sqrt(x)),
+        UNARY("id", x, Functions::id(x)),
+        UNARY("sqrt", x, Functions::sqrt(x)),
     };
 }
 

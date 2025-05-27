@@ -37,8 +37,9 @@ qt_add_library(CalQMath
   src/math/mathfunction.h        src/math/mathfunction.cpp
   src/math/mathstatement.h       src/math/mathstatement.cpp
   src/math/mathstatementparser.h src/math/mathstatementparser.cpp
-  src/math/number.h              src/math/number.cpp
-  src/math/mathstringify.h       src/math/mathstringify.cpp
+  src/math/backend/number.h      src/math/backend/number.cpp
+  src/math/backend/numberimpl.h
+  src/math/backend/functions.h   src/math/backend/functions.cpp
 )
 set_property(TARGET CalQMath PROPERTY CXX_STANDARD 23)
 target_include_directories(CalQMath PUBLIC ${GMPXX_INCLUDE_DIR})

@@ -21,7 +21,6 @@ enum class BinaryOp : uint8_t
 };
 
 class Statement;
-using Scalar = mpf_class;
 using Term = std::variant<Statement, Scalar>;
 
 class Statement
