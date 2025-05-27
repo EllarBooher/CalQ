@@ -49,7 +49,7 @@ auto QTest::toString(std::optional<MathStatement> const& statement) -> char*
 
 namespace
 {
-void testParse()
+void testParse(MathInterpreter const& interpreter)
 {
     std::vector<std::string> const invalidTestCases{
         "0..0+0", "0..+0", "0+0..0", "0+0..", ".",  "..", "+-*/", "0+",
@@ -59,7 +59,7 @@ void testParse()
 
     for (auto const& input : invalidTestCases)
     {
-        QCOMPARE(MathInterpreter::parse(input), std::nullopt);
+        QCOMPARE(interpreter.parse(input), std::nullopt);
     }
 
     std::vector<std::tuple<std::string, size_t>> const termCountCases{
@@ -67,7 +67,7 @@ void testParse()
     };
     for (auto const& [input, termCount] : termCountCases)
     {
-        auto const statementResult{MathInterpreter::parse(input)};
+        auto const statementResult{interpreter.parse(input)};
         QVERIFY(statementResult.has_value());
 
         auto const& statement{statementResult.value()};
@@ -76,7 +76,7 @@ void testParse()
     }
 }
 
-void testParentheses()
+void testParentheses(MathInterpreter const& interpreter)
 {
     std::vector<std::string> const invalidTestCases{
         "()",
@@ -107,7 +107,7 @@ void testParentheses()
 
     for (auto const& input : invalidTestCases)
     {
-        QCOMPARE(MathInterpreter::parse(input), std::nullopt);
+        QCOMPARE(interpreter.parse(input), std::nullopt);
     }
 
     std::vector<std::tuple<std::string, double>> const interpretTestCases{
@@ -127,14 +127,14 @@ void testParentheses()
     };
     for (auto const& [input, output] : interpretTestCases)
     {
-        auto const statementResult{MathInterpreter::parse(input)};
+        auto const statementResult{interpreter.parse(input)};
         QVERIFY(statementResult.has_value());
 
-        QCOMPARE(MathInterpreter::interpret(input), output);
+        QCOMPARE(interpreter.interpret(input), output);
     }
 }
 
-void testWhitespace()
+void testWhitespace(MathInterpreter const& interpreter)
 {
     std::vector<std::string> const whitespaceParseCases{
         " 0 - 1 + 2 / 3 * 4 ",
@@ -145,14 +145,14 @@ void testWhitespace()
         "0  -1+2/3*4  ",
         "\n0\n-\n1\n+\n2\n/\n3\n*\n4\n",
     };
-    auto const exemplar{MathInterpreter::parse("0-1+2/3*4")};
+    auto const exemplar{interpreter.parse("0-1+2/3*4")};
     for (auto const& input : whitespaceParseCases)
     {
-        QCOMPARE(MathInterpreter::parse(input), exemplar);
+        QCOMPARE(interpreter.parse(input), exemplar);
     }
 }
 
-void testInterpret()
+void testInterpret(MathInterpreter const& interpreter)
 {
     // These cases are lacking and should be expanded
     std::vector<std::tuple<std::string, double>> const successTestCases{
@@ -168,7 +168,7 @@ void testInterpret()
 
     for (auto const& [input, output] : successTestCases)
     {
-        QCOMPARE(MathInterpreter::interpret(input), output);
+        QCOMPARE(interpreter.interpret(input), output);
     }
 
     std::vector<std::tuple<std::string, MathInterpretationError>> const
@@ -178,11 +178,11 @@ void testInterpret()
 
     for (auto const& [input, output] : failureTestCases)
     {
-        QCOMPARE(MathInterpreter::interpret(input), std::unexpected(output));
+        QCOMPARE(interpreter.interpret(input), std::unexpected(output));
     }
 }
 
-void testOrderOfOperators()
+void testOrderOfOperators(MathInterpreter const& interpreter)
 {
     std::vector<std::tuple<std::string, double>> const PEMDASTestCases{
         {"1 * 2 + 3 / 4 - 5", (1.0 * 2.0) + (3.0 / 4.0) - 5.0},
@@ -192,7 +192,33 @@ void testOrderOfOperators()
     };
     for (auto const& [input, output] : PEMDASTestCases)
     {
-        QCOMPARE(MathInterpreter::interpret(input), output);
+        QCOMPARE(interpreter.interpret(input), output);
+    }
+}
+
+void testFunctions(MathInterpreter const& interpreter)
+{
+    std::vector<std::string> const invalidTestCases{
+        "id()", "id(id())", "0.0 + id()", "id() + 0.0"
+    };
+    for (auto const& input : invalidTestCases)
+    {
+        QVERIFY(!interpreter.parse(input).has_value());
+    }
+
+    std::vector<std::tuple<std::string, double>> const testCases{
+        {"id(1)", 1.0},
+        {"id(id(2))", 2.0},
+        {"id(id(id(3)))", 3.0},
+        {"id(1.0 + 3.0)", 4.0},
+        {"id(1.0 + id(4.0))", 5.0},
+        {"id(id(4.0)+id(2.0))", 6.0},
+        {"4.0 + id(3.0)", 7.0},
+    };
+
+    for (auto const& [input, output] : testCases)
+    {
+        QCOMPARE(interpreter.interpret(input), output);
     }
 }
 
@@ -200,11 +226,14 @@ void testOrderOfOperators()
 
 void TestMathInterpreter::test()
 {
-    testParse();
-    testWhitespace();
-    testParentheses();
-    testInterpret();
-    testOrderOfOperators();
+    MathInterpreter const interpreter{};
+
+    testParse(interpreter);
+    testWhitespace(interpreter);
+    testParentheses(interpreter);
+    testInterpret(interpreter);
+    testOrderOfOperators(interpreter);
+    testFunctions(interpreter);
 }
 
 QTEST_MAIN(TestMathInterpreter)

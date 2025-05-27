@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mathfunction.h"
 #include <algorithm>
 #include <cstdint>
 #include <expected>
@@ -61,6 +62,8 @@ public:
     void reset(MathTerm&& initial);
     auto reset(MathStatement&& initial) -> MathStatement&;
 
+    void setFunction(MathUnaryFunction&& function);
+
     /**
      * @brief append - Append a new term prepended by an operator
      * @param mathOp - The binary operator that will come before the term.
@@ -74,6 +77,9 @@ private:
     [[nodiscard]] auto evaluateTerm(size_t index) const
         -> std::optional<double>;
 
+    // A function that is run as the statements final result. null optional
+    // indicates the identity function, so a no-op.
+    std::optional<MathUnaryFunction> m_function;
     // A valid statement interleaves terms and operators, or is completely empty
     std::vector<std::unique_ptr<MathTerm>> m_terms;
     std::vector<MathOp> m_operators;
@@ -98,6 +104,8 @@ private:
 class MathInterpreter
 {
 public:
+    MathInterpreter();
+
     /**
      * @brief prettify - Converts the input string into a prettier form.
      *
@@ -110,7 +118,7 @@ public:
      */
     static auto prettify(std::string const& rawInput) -> std::string;
 
-    static auto parse(std::string const& rawInput)
+    [[nodiscard]] auto parse(std::string const& rawInput) const
         -> std::optional<MathStatement>;
 
     /**
@@ -122,6 +130,9 @@ public:
      *
      * @param rawInput - The stringified equation.
      */
-    static auto interpret(std::string const& rawInput)
+    [[nodiscard]] auto interpret(std::string const& rawInput) const
         -> std::expected<double, MathInterpretationError>;
+
+private:
+    MathFunctionDatabase m_functions;
 };

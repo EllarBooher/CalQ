@@ -1,5 +1,6 @@
 #include "mathinterpreter.h"
 
+#include "mathfunction.h"
 #include <cassert>
 #include <cctype>
 #include <cstddef>
@@ -23,6 +24,8 @@ template <class... Ts> struct overloads : Ts...
 
 namespace
 {
+// TODO: rewrite this an support locales
+
 auto checkIsDigit(char const character) -> bool
 {
     static std::unordered_set<char> const digits{
@@ -37,6 +40,10 @@ auto checkIsOperator(char const character) -> bool
     static std::unordered_set<char> const operators{'+', '-', '*', '/'};
     return operators.contains(character);
 }
+auto checkIsAlpha(char const character) -> bool
+{
+    return std::isalpha(character) != 0;
+}
 
 enum class StatementCharacterType : uint8_t
 {
@@ -45,6 +52,7 @@ enum class StatementCharacterType : uint8_t
     Decimal,
     OpenParenthesis,
     CloseParenthesis,
+    Alphabetic,
 };
 
 auto parseCharacter(char const character)
@@ -58,6 +66,11 @@ auto parseCharacter(char const character)
     if (character == ')')
     {
         return StatementCharacterType::CloseParenthesis;
+    }
+
+    if (checkIsAlpha(character))
+    {
+        return StatementCharacterType::Alphabetic;
     }
 
     if (checkIsDigit(character))
@@ -113,19 +126,23 @@ auto trim(std::string const& rawInput) -> std::string
 }
 } // namespace
 
+MathInterpreter::MathInterpreter() = default;
+
 auto MathInterpreter::prettify(std::string const& rawInput) -> std::string
 {
     return trim(rawInput);
 }
 
-struct MathStatementParser
+class MathStatementParser
 {
+public:
     explicit MathStatementParser(std::string const& rawInput)
         : m_trimmed(trim(rawInput))
     {
     }
 
-    auto execute() -> std::optional<MathStatement>
+    auto execute(MathFunctionDatabase const& functions)
+        -> std::optional<MathStatement>
     {
         IncrementResult incrementResult{IncrementResult::Continue};
         assert(m_statementDepthStack.empty());
@@ -134,7 +151,7 @@ struct MathStatementParser
 
         while (incrementResult == IncrementResult::Continue)
         {
-            incrementResult = increment();
+            incrementResult = increment(functions);
         }
 
         if (incrementResult == IncrementResult::Error)
@@ -176,6 +193,77 @@ private:
         ParseStateNumber,
         ParseStateOperator>;
 
+    [[nodiscard]] auto characterAt(size_t const index) const
+        -> std::optional<char>
+    {
+        if (index >= m_trimmed.size())
+        {
+            return std::nullopt;
+        }
+
+        return m_trimmed.at(index);
+    }
+
+    /**
+     * Starting at the current m_index, grabs all contiguous alphabetic
+     * characters and returns the name of the function. So if the stream is "...
+     * function(...) ..." with the m_index at f, then "function" will be
+     * returned. If non-alphabetic characters are encountered before the
+     * paranthesis is encountered, null is returned.
+     *
+     * This method mutates the m_index, and moves it to the open paranthesis if
+     * successful.
+     * If null is returned, m_index is not mutated.
+     *
+     * @brief seekToEndOfFunctionName
+     * @return
+     */
+    [[nodiscard]] auto seekToEndOfFunctionName() -> std::optional<std::string>
+    {
+        // This is possibly a function name, composed of alphabetic
+        // characters.
+        // We seek for parantheses indicating the end.
+        size_t const functionNameStartIndex = m_index;
+        size_t functionNameSize = 0;
+        auto currentCharacter =
+            characterAt(functionNameStartIndex + functionNameSize);
+        while (currentCharacter.has_value())
+        {
+            char const character = currentCharacter.value();
+
+            if (character == '(')
+            {
+                break;
+            }
+
+            if (!checkIsAlpha(character))
+            {
+                return std::nullopt;
+            }
+
+            functionNameSize++;
+            currentCharacter =
+                characterAt(functionNameStartIndex + functionNameSize);
+        }
+
+        if (functionNameStartIndex + functionNameSize >= m_trimmed.size())
+        {
+            return std::nullopt;
+        }
+
+        // +1 for the paranthesis
+        m_index += functionNameSize;
+
+        try
+        {
+            return m_trimmed.substr(functionNameStartIndex, functionNameSize);
+        }
+        catch (std::out_of_range const&)
+        {
+            return std::nullopt;
+        }
+    }
+
     /**
      * Increments the index into the string we are parsing, expanding the
      * resulting MathStatement with new terms as they are parsed.
@@ -185,7 +273,7 @@ private:
      * error occured or if parsing is finished.
      */
     // NOLINTNEXTLINE
-    auto increment() -> IncrementResult
+    auto increment(MathFunctionDatabase const& functions) -> IncrementResult
     {
         assert(
             !m_statementDepthStack.empty()
@@ -202,7 +290,7 @@ private:
             return IncrementResult::Finished;
         }
 
-        size_t const currentIndex = m_index++;
+        size_t const currentIndex = m_index;
         char const currentChar = m_trimmed.at(currentIndex);
         auto const typeResult = parseCharacter(currentChar);
         if (!typeResult.has_value())
@@ -245,12 +333,35 @@ private:
                     .afterDecimal = type == StatementCharacterType::Decimal,
                     .mathOp = std::nullopt
                 };
+            case StatementCharacterType::Alphabetic:
             case StatementCharacterType::OpenParenthesis:
             {
-                auto& topLevelStatement = *m_statementDepthStack.top();
-                m_statementDepthStack.push(
-                    &topLevelStatement.reset(MathStatement{})
-                );
+                auto& deeperStatement =
+                    m_statementDepthStack.top()->reset(MathStatement{});
+                m_statementDepthStack.push(&deeperStatement);
+
+                if (type == StatementCharacterType::Alphabetic)
+                {
+                    auto const functionNameResult = seekToEndOfFunctionName();
+
+                    if (!functionNameResult.has_value())
+                    {
+                        return std::nullopt;
+                    }
+
+                    auto functionLookupResult =
+                        functions.lookup(functionNameResult.value());
+
+                    if (!functionLookupResult.has_value())
+                    {
+                        return std::nullopt;
+                    }
+
+                    deeperStatement.setFunction(
+                        std::move(functionLookupResult.value())
+                    );
+                }
+
                 return ParseStateOpened();
             }
             default:
@@ -269,13 +380,36 @@ private:
                     .afterDecimal = type == StatementCharacterType::Decimal,
                     .mathOp = state.mathOp
                 };
+            case StatementCharacterType::Alphabetic:
             case StatementCharacterType::OpenParenthesis:
             {
-                auto* deeperStatement =
-                    &m_statementDepthStack.top()->appendStatement(state.mathOp);
-                m_statementDepthStack.push(deeperStatement);
+                auto& deeperStatement =
+                    m_statementDepthStack.top()->appendStatement(state.mathOp);
+                m_statementDepthStack.push(&deeperStatement);
 
-                return ParseStateOpened{};
+                if (type == StatementCharacterType::Alphabetic)
+                {
+                    auto const functionNameResult = seekToEndOfFunctionName();
+
+                    if (!functionNameResult.has_value())
+                    {
+                        return std::nullopt;
+                    }
+
+                    auto functionLookupResult =
+                        functions.lookup(functionNameResult.value());
+
+                    if (!functionLookupResult.has_value())
+                    {
+                        return std::nullopt;
+                    }
+
+                    deeperStatement.setFunction(
+                        std::move(functionLookupResult.value())
+                    );
+                }
+
+                return ParseStateOpened();
             }
             default:
                 return std::nullopt;
@@ -354,6 +488,7 @@ private:
             return IncrementResult::Error;
         }
         m_state = nextState.value();
+        m_index++;
 
         return IncrementResult::Continue;
     }
@@ -451,14 +586,14 @@ private:
     size_t m_index{0};
 };
 
-auto MathInterpreter::parse(std::string const& rawInput)
+auto MathInterpreter::parse(std::string const& rawInput) const
     -> std::optional<MathStatement>
 {
     MathStatementParser parser{rawInput};
-    return parser.execute();
+    return parser.execute(m_functions);
 }
 
-auto MathInterpreter::interpret(std::string const& rawInput)
+auto MathInterpreter::interpret(std::string const& rawInput) const
     -> std::expected<double, MathInterpretationError>
 {
     auto const parsed = parse(rawInput);
@@ -673,7 +808,15 @@ auto MathStatement::evaluate() const -> std::optional<double>
     }
 
     assert(terms.size() == 1);
-    return terms[0];
+    double const result = terms[0];
+
+    if (m_function.has_value())
+    {
+        assert(m_function.value() != nullptr);
+        return m_function.value()(result);
+    }
+
+    return result;
 }
 
 auto MathStatement::length() const -> size_t { return m_terms.size(); }
@@ -694,6 +837,11 @@ auto MathStatement::reset(MathStatement&& initial) -> MathStatement&
     m_terms.push_back(std::make_unique<MathTerm>(std::move(initial)));
 
     return std::get<MathStatement>(*m_terms.back());
+}
+
+void MathStatement::setFunction(MathUnaryFunction&& function)
+{
+    m_function = std::move(function);
 }
 
 auto MathStatement::append(MathOp mathOp) -> MathTerm&

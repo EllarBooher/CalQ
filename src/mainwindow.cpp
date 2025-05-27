@@ -33,6 +33,7 @@ MainWindow::MainWindow(QWidget* parent)
     m_messages = std::make_unique<QStringList>();
     m_messagesModel = std::make_unique<QStringListModel>();
     m_messagesModel->setStringList(*m_messages);
+    m_interpreter = std::make_unique<MathInterpreter>();
 
     m_ui->listView->setModel(m_messagesModel.get());
 
@@ -77,7 +78,7 @@ void MainWindow::onLineEnterPressed()
     auto const prettified = "> " + MathInterpreter::prettify(messageStd);
     m_messages->append(QString::fromUtf8(prettified));
 
-    auto const mathResult = MathInterpreter::interpret(messageStd);
+    auto const mathResult = m_interpreter->interpret(messageStd);
     m_messages->append(mathResultToQString(mathResult));
 
     m_messagesModel->setStringList(*m_messages);
@@ -98,7 +99,7 @@ void MainWindow::onLineTextUpdated(QString const& newText)
     auto const equation =
         QString::fromUtf8(MathInterpreter::prettify(messageStd));
     auto const result =
-        mathResultToQString(MathInterpreter::interpret(messageStd));
+        mathResultToQString(m_interpreter->interpret(messageStd));
 
     setPreviewLabels(equation, result);
 }
