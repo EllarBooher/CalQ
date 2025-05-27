@@ -13,6 +13,8 @@ qt_add_library(
     CalQMath
     src/math/mathinterpreter.h src/math/mathinterpreter.cpp
     src/math/mathfunction.h src/math/mathfunction.cpp
+    src/math/mathstatement.h src/math/mathstatement.cpp
+    src/math/mathstatementparser.h src/math/mathstatementparser.cpp
 )
 set_property(TARGET CalQMath PROPERTY CXX_STANDARD 23)
 
