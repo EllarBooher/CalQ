@@ -7,16 +7,18 @@
     {name, [](Scalar const& input) { return output; }}                         \
     /* NOLINTEND(readability-identifier-length)*/
 
-MathFunctionDatabase::MathFunctionDatabase()
+namespace calqmath
 {
-    m_unaryFunctions = std::map<std::string, MathUnaryFunction>{
+FunctionDatabase::FunctionDatabase()
+{
+    m_unaryFunctions = std::map<std::string, UnaryFunction>{
         UNARY("id", x, x),
         UNARY("sqrt", x, sqrt(x)),
     };
 }
 
-auto MathFunctionDatabase::lookup(std::string const& identifier) const
-    -> std::optional<MathUnaryFunction>
+auto FunctionDatabase::lookup(std::string const& identifier) const
+    -> std::optional<UnaryFunction>
 {
     if (!m_unaryFunctions.contains(identifier))
     {
@@ -25,3 +27,4 @@ auto MathFunctionDatabase::lookup(std::string const& identifier) const
 
     return m_unaryFunctions.at(identifier);
 }
+} // namespace calqmath

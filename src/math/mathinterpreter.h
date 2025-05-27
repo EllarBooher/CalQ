@@ -7,7 +7,9 @@
 #include <optional>
 #include <string>
 
-enum class MathInterpretationError : uint8_t
+namespace calqmath
+{
+enum class InterpretError : uint8_t
 {
     ParseError,
     EvaluationError,
@@ -29,10 +31,10 @@ enum class MathInterpretationError : uint8_t
  * Mathematical evaluation uses standard BEDMAS/PEMDAS order. Thus
  * evaluation is depth first, with nesting indicated by parenthesis.
  */
-class MathInterpreter
+class Interpreter
 {
 public:
-    MathInterpreter();
+    Interpreter();
 
     /**
      * @brief prettify - Converts the input string into a prettier form.
@@ -47,7 +49,7 @@ public:
     static auto prettify(std::string const& rawInput) -> std::string;
 
     [[nodiscard]] auto parse(std::string const& rawInput) const
-        -> std::optional<MathStatement>;
+        -> std::optional<Statement>;
 
     /**
      * @brief interpret - Parses user input as a mathematical statement and
@@ -59,8 +61,9 @@ public:
      * @param rawInput - The stringified equation.
      */
     [[nodiscard]] auto interpret(std::string const& rawInput) const
-        -> std::expected<Scalar, MathInterpretationError>;
+        -> std::expected<Scalar, InterpretError>;
 
 private:
-    MathFunctionDatabase m_functions;
+    FunctionDatabase m_functions;
 };
+} // namespace calqmath

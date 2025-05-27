@@ -19,27 +19,24 @@ template <class... Ts> struct overloads : Ts...
     using Ts::operator()...;
 };
 
-namespace
+namespace calqmath
 {
-
-} // namespace
-
-auto MathStatement::operator=(MathStatement const& other) -> MathStatement&
+auto Statement::operator=(Statement const& other) -> Statement&
 {
     m_terms.clear();
 
     for (auto const& term : other.m_terms)
     {
-        m_terms.push_back(std::make_unique<MathTerm>(*term));
+        m_terms.push_back(std::make_unique<Term>(*term));
     }
     m_operators = other.m_operators;
 
     return *this;
 }
 
-MathStatement::MathStatement(MathStatement const& other) { *this = other; }
+Statement::Statement(Statement const& other) { *this = other; }
 
-auto MathStatement::operator=(MathStatement&& other) noexcept -> MathStatement&
+auto Statement::operator=(Statement&& other) noexcept -> Statement&
 {
     m_terms = std::move(other).m_terms;
     m_operators = std::move(other).m_operators;
@@ -47,12 +44,9 @@ auto MathStatement::operator=(MathStatement&& other) noexcept -> MathStatement&
     return *this;
 }
 
-MathStatement::MathStatement(MathStatement&& other) noexcept
-{
-    *this = std::move(other);
-}
+Statement::Statement(Statement&& other) noexcept { *this = std::move(other); }
 
-auto MathStatement::operator==(MathStatement const& rhs) const -> bool
+auto Statement::operator==(Statement const& rhs) const -> bool
 {
     if (length() != rhs.length())
     {
@@ -88,17 +82,17 @@ auto MathStatement::operator==(MathStatement const& rhs) const -> bool
 
 namespace
 {
-auto mathOperatorToString(MathOp const mathOp) -> char const*
+auto mathOperatorToString(BinaryOp const binaryOp) -> char const*
 {
-    switch (mathOp)
+    switch (binaryOp)
     {
-    case MathOp::Plus:
+    case BinaryOp::Plus:
         return "+";
-    case MathOp::Minus:
+    case BinaryOp::Minus:
         return "-";
-    case MathOp::Multiply:
+    case BinaryOp::Multiply:
         return "*";
-    case MathOp::Divide:
+    case BinaryOp::Divide:
         return "/";
     }
 
@@ -106,7 +100,7 @@ auto mathOperatorToString(MathOp const mathOp) -> char const*
 }
 } // namespace
 
-auto MathStatement::string() const -> std::string
+auto Statement::string() const -> std::string
 {
     if (!valid())
     {
@@ -132,7 +126,7 @@ auto MathStatement::string() const -> std::string
     return output;
 }
 
-auto MathStatement::evaluate() const -> std::optional<Scalar>
+auto Statement::evaluate() const -> std::optional<Scalar>
 {
 
     if (!valid())
@@ -156,21 +150,22 @@ auto MathStatement::evaluate() const -> std::optional<Scalar>
         terms.push_back(evaluateResult.value());
     }
 
-    std::deque<MathOp> operators{m_operators.begin(), m_operators.end()};
+    std::deque<BinaryOp> operators{m_operators.begin(), m_operators.end()};
 
     // Reduce while evaluating operators for adjacent terms.
     // Multiplication and division first
     size_t index = 0;
     while (index < operators.size())
     {
-        MathOp const mathOperator = operators[index];
-        if (mathOperator == MathOp::Plus || mathOperator == MathOp::Minus)
+        BinaryOp const mathOperator = operators[index];
+        if (mathOperator == BinaryOp::Plus || mathOperator == BinaryOp::Minus)
         {
             index++;
             continue;
         }
         assert(
-            mathOperator == MathOp::Multiply || mathOperator == MathOp::Divide
+            mathOperator == BinaryOp::Multiply
+            || mathOperator == BinaryOp::Divide
         );
 
         Scalar const firstTerm = terms[index];
@@ -179,7 +174,7 @@ auto MathStatement::evaluate() const -> std::optional<Scalar>
         terms.erase(terms.begin() + index);
         operators.erase(operators.begin() + index);
 
-        if (mathOperator == MathOp::Multiply)
+        if (mathOperator == BinaryOp::Multiply)
         {
             terms.at(index) = firstTerm * secondTerm;
         }
@@ -192,8 +187,10 @@ auto MathStatement::evaluate() const -> std::optional<Scalar>
     // Addition and subtraction next
     while (!operators.empty())
     {
-        MathOp const mathOperator = operators[0];
-        assert(mathOperator == MathOp::Plus || mathOperator == MathOp::Minus);
+        BinaryOp const mathOperator = operators[0];
+        assert(
+            mathOperator == BinaryOp::Plus || mathOperator == BinaryOp::Minus
+        );
 
         Scalar const firstTerm = terms[0];
         Scalar const secondTerm = terms[1];
@@ -202,7 +199,7 @@ auto MathStatement::evaluate() const -> std::optional<Scalar>
         operators.pop_front();
         index -= 1;
 
-        if (mathOperator == MathOp::Plus)
+        if (mathOperator == BinaryOp::Plus)
         {
             terms[0] = firstTerm + secondTerm;
         }
@@ -224,67 +221,68 @@ auto MathStatement::evaluate() const -> std::optional<Scalar>
     return result;
 }
 
-auto MathStatement::length() const -> size_t { return m_terms.size(); }
+auto Statement::length() const -> size_t { return m_terms.size(); }
 
-void MathStatement::reset(MathTerm&& initial)
+void Statement::reset(Term&& initial)
 {
     m_terms.clear();
     m_operators.clear();
 
-    m_terms.push_back(std::make_unique<MathTerm>(std::move(initial)));
+    m_terms.push_back(std::make_unique<Term>(std::move(initial)));
 }
 
-auto MathStatement::reset(MathStatement&& initial) -> MathStatement&
+auto Statement::reset(Statement&& initial) -> Statement&
 {
     m_terms.clear();
     m_operators.clear();
 
-    m_terms.push_back(std::make_unique<MathTerm>(std::move(initial)));
+    m_terms.push_back(std::make_unique<Term>(std::move(initial)));
 
-    return std::get<MathStatement>(*m_terms.back());
+    return std::get<Statement>(*m_terms.back());
 }
 
-void MathStatement::setFunction(MathUnaryFunction&& function)
+void Statement::setFunction(UnaryFunction&& function)
 {
     m_function = std::move(function);
 }
 
-auto MathStatement::append(MathOp mathOp) -> MathTerm&
+auto Statement::append(BinaryOp mathOp) -> Term&
 {
-    m_terms.push_back(std::make_unique<MathTerm>(0.0));
+    m_terms.push_back(std::make_unique<Term>(0.0));
     m_operators.push_back(mathOp);
 
     return *m_terms.back();
 }
 
-auto MathStatement::appendStatement(MathOp mathOp) -> MathStatement&
+auto Statement::appendStatement(BinaryOp mathOp) -> Statement&
 {
     auto& term = append(mathOp);
-    term = MathStatement();
-    return std::get<MathStatement>(term);
+    term = Statement();
+    return std::get<Statement>(term);
 }
 
-auto MathStatement::stringTerm(size_t index) const -> std::string
+auto Statement::stringTerm(size_t index) const -> std::string
 {
     assert(index < m_terms.size() || m_terms[index] != nullptr);
 
     auto const visitor = overloads{
         [](Scalar const& number) { return calqmath::toString(number); },
-        [](MathStatement const& statement)
+        [](Statement const& statement)
     { return "(" + statement.string() + ")"; },
     };
 
     return std::visit(visitor, *m_terms[index]);
 }
 
-auto MathStatement::evaluateTerm(size_t index) const -> std::optional<Scalar>
+auto Statement::evaluateTerm(size_t index) const -> std::optional<Scalar>
 {
     assert(index < m_terms.size() || m_terms[index] != nullptr);
 
     auto const visitor = overloads{
         [](Scalar const& number) { return std::optional{number}; },
-        [](MathStatement const& statement) { return statement.evaluate(); }
+        [](Statement const& statement) { return statement.evaluate(); }
     };
 
     return std::visit(visitor, *m_terms[index]);
 }
+} // namespace calqmath

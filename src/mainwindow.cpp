@@ -34,7 +34,7 @@ MainWindow::MainWindow(QWidget* parent)
     m_messages = std::make_unique<QStringList>();
     m_messagesModel = std::make_unique<QStringListModel>();
     m_messagesModel->setStringList(*m_messages);
-    m_interpreter = std::make_unique<MathInterpreter>();
+    m_interpreter = std::make_unique<calqmath::Interpreter>();
 
     m_ui->listView->setModel(m_messagesModel.get());
 
@@ -45,8 +45,9 @@ MainWindow::~MainWindow() = default;
 
 namespace
 {
-auto toString(std::expected<Scalar, MathInterpretationError> const result)
-    -> QString
+auto toString(
+    std::expected<calqmath::Scalar, calqmath::InterpretError> const result
+) -> QString
 {
     if (result.has_value())
     {
@@ -55,9 +56,9 @@ auto toString(std::expected<Scalar, MathInterpretationError> const result)
 
     switch (result.error())
     {
-    case MathInterpretationError::ParseError:
+    case calqmath::InterpretError::ParseError:
         return "Parse Error";
-    case MathInterpretationError::EvaluationError:
+    case calqmath::InterpretError::EvaluationError:
         return "Evaluation Error";
     default:
         return "Unknown Error";
@@ -75,7 +76,7 @@ void MainWindow::onLineEnterPressed()
 
     auto const messageStd = newMessage.toStdString();
 
-    auto const prettified = "> " + MathInterpreter::prettify(messageStd);
+    auto const prettified = "> " + calqmath::Interpreter::prettify(messageStd);
     m_messages->append(QString::fromUtf8(prettified));
 
     auto const mathResult = m_interpreter->interpret(messageStd);
@@ -97,7 +98,7 @@ void MainWindow::onLineTextUpdated(QString const& newText)
     auto const messageStd = newText.toStdString();
 
     auto const equation =
-        QString::fromUtf8(MathInterpreter::prettify(messageStd));
+        QString::fromUtf8(calqmath::Interpreter::prettify(messageStd));
     auto const result = ::toString(m_interpreter->interpret(messageStd));
 
     setPreviewLabels(equation, result);

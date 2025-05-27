@@ -23,7 +23,7 @@ namespace
 {
 enum class StatementCharacterType : uint8_t
 {
-    MathOperator,
+    BinaryOp,
     Digit,
     Decimal,
     OpenParenthesis,
@@ -75,7 +75,7 @@ auto parseCharacter(char const character)
 
     if (checkIsOperator(character))
     {
-        return StatementCharacterType::MathOperator;
+        return StatementCharacterType::BinaryOp;
     }
 
     if (checkIsDecimal(character))
@@ -86,26 +86,26 @@ auto parseCharacter(char const character)
     return std::nullopt;
 }
 
-auto parseOperator(char const character) -> std::optional<MathOp>
+auto parseOperator(char const character) -> std::optional<calqmath::BinaryOp>
 {
     if (character == '+')
     {
-        return MathOp::Plus;
+        return calqmath::BinaryOp::Plus;
     }
 
     if (character == '-')
     {
-        return MathOp::Minus;
+        return calqmath::BinaryOp::Minus;
     }
 
     if (character == '*')
     {
-        return MathOp::Multiply;
+        return calqmath::BinaryOp::Multiply;
     }
 
     if (character == '/')
     {
-        return MathOp::Divide;
+        return calqmath::BinaryOp::Divide;
     }
 
     return std::nullopt;
@@ -121,13 +121,15 @@ auto trim(std::string const& rawInput) -> std::string
 }
 } // namespace
 
-MathStatementParser::MathStatementParser(std::string const& rawInput)
+namespace calqmath
+{
+StatementParser::StatementParser(std::string const& rawInput)
     : m_trimmed(trim(rawInput))
 {
 }
 
-auto MathStatementParser::execute(MathFunctionDatabase const& functions)
-    -> std::optional<MathStatement>
+auto StatementParser::execute(FunctionDatabase const& functions)
+    -> std::optional<Statement>
 {
     IncrementResult incrementResult{IncrementResult::Continue};
     assert(m_statementDepthStack.empty());
@@ -162,13 +164,13 @@ struct ParseStateClosed
 };
 struct ParseStateOperator
 {
-    MathOp mathOp;
+    BinaryOp mathOp;
 };
 struct ParseStateNumber
 {
     size_t numberStartIndex{0};
     bool afterDecimal{false};
-    std::optional<MathOp> mathOp;
+    std::optional<BinaryOp> mathOp;
 };
 
 using ParseState = std::variant<
@@ -177,7 +179,7 @@ using ParseState = std::variant<
     ParseStateNumber,
     ParseStateOperator>;
 
-auto MathStatementParser::characterAt(size_t const index) const
+auto StatementParser::characterAt(size_t const index) const
     -> std::optional<char>
 {
     if (index >= m_trimmed.size())
@@ -202,8 +204,7 @@ auto MathStatementParser::characterAt(size_t const index) const
  * @brief seekToEndOfFunctionName
  * @return
  */
-auto MathStatementParser::seekToEndOfFunctionName()
-    -> std::optional<std::string>
+auto StatementParser::seekToEndOfFunctionName() -> std::optional<std::string>
 {
     // This is possibly a function name, composed of alphabetic
     // characters.
@@ -258,7 +259,7 @@ auto MathStatementParser::seekToEndOfFunctionName()
  * error occured or if parsing is finished.
  */
 // NOLINTNEXTLINE
-auto MathStatementParser::increment(MathFunctionDatabase const& functions)
+auto StatementParser::increment(FunctionDatabase const& functions)
     -> IncrementResult
 {
     assert(
@@ -289,7 +290,7 @@ auto MathStatementParser::increment(MathFunctionDatabase const& functions)
     {
         switch (type)
         {
-        case StatementCharacterType::MathOperator:
+        case StatementCharacterType::BinaryOp:
             return ParseStateOperator{
                 .mathOp = parseOperator(currentChar).value()
             };
@@ -322,7 +323,7 @@ auto MathStatementParser::increment(MathFunctionDatabase const& functions)
         case StatementCharacterType::OpenParenthesis:
         {
             auto& deeperStatement =
-                m_statementDepthStack.top()->reset(MathStatement{});
+                m_statementDepthStack.top()->reset(Statement{});
             m_statementDepthStack.push(&deeperStatement);
 
             if (type == StatementCharacterType::Alphabetic)
@@ -419,7 +420,7 @@ auto MathStatementParser::increment(MathFunctionDatabase const& functions)
                 .mathOp = state.mathOp,
             };
         }
-        case StatementCharacterType::MathOperator:
+        case StatementCharacterType::BinaryOp:
         case StatementCharacterType::CloseParenthesis:
         {
             Scalar const number{m_trimmed.substr(
@@ -443,7 +444,7 @@ auto MathStatementParser::increment(MathFunctionDatabase const& functions)
                 topLevelStatement.reset(number);
             }
 
-            if (type == StatementCharacterType::MathOperator)
+            if (type == StatementCharacterType::BinaryOp)
             {
                 return ParseStateOperator{
                     .mathOp = parseOperator(currentChar).value()
@@ -477,7 +478,7 @@ auto MathStatementParser::increment(MathFunctionDatabase const& functions)
     return IncrementResult::Continue;
 }
 
-auto MathStatementParser::finish() -> std::optional<MathStatement>
+auto StatementParser::finish() -> std::optional<Statement>
 {
     if (m_statementDepthStack.size() != 1)
     {
@@ -537,3 +538,4 @@ auto MathStatementParser::finish() -> std::optional<MathStatement>
 
     return std::move(*m_statementDepthStack.top());
 }
+} // namespace calqmath

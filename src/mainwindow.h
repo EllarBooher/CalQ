@@ -4,7 +4,10 @@
 #include <QStringList>
 #include <QStringListModel>
 
-class MathInterpreter;
+namespace calqmath
+{
+class Interpreter;
+} // namespace calqmath
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -31,5 +34,5 @@ private:
     std::unique_ptr<Ui::MainWindow> m_ui;
     std::unique_ptr<QStringList> m_messages;
     std::unique_ptr<QStringListModel> m_messagesModel;
-    std::unique_ptr<MathInterpreter> m_interpreter;
+    std::unique_ptr<calqmath::Interpreter> m_interpreter;
 };

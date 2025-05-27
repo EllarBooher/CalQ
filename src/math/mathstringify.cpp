@@ -13,7 +13,7 @@ struct ScalarStringDecomposition
 
 namespace
 {
-auto decompose(Scalar const& number) -> ScalarStringDecomposition
+auto decompose(calqmath::Scalar const& number) -> ScalarStringDecomposition
 {
     size_t constexpr PRECISION_DIGITS = 10;
     size_t constexpr BASE = 10;

@@ -6,12 +6,14 @@
 #include <optional>
 #include <string>
 
-using MathUnaryFunction = std::function<Scalar(Scalar)>;
+namespace calqmath
+{
+using UnaryFunction = std::function<Scalar(Scalar)>;
 
-class MathFunctionDatabase
+class FunctionDatabase
 {
 public:
-    MathFunctionDatabase();
+    FunctionDatabase();
 
     /**
      * For example, the string "sin" will return the trigonometric sine
@@ -23,8 +25,9 @@ public:
      *  function is loaded.
      */
     [[nodiscard]] auto lookup(std::string const& identifier) const
-        -> std::optional<MathUnaryFunction>;
+        -> std::optional<UnaryFunction>;
 
 private:
-    std::map<std::string, MathUnaryFunction> m_unaryFunctions;
+    std::map<std::string, UnaryFunction> m_unaryFunctions;
 };
+} // namespace calqmath

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "mathfunction.h"
-#include "number.h"
 #include <algorithm>
 #include <cstdint>
 #include <expected>
@@ -11,7 +10,9 @@
 #include <variant>
 #include <vector>
 
-enum class MathOp : uint8_t
+namespace calqmath
+{
+enum class BinaryOp : uint8_t
 {
     Plus,
     Minus,
@@ -19,20 +20,20 @@ enum class MathOp : uint8_t
     Divide
 };
 
-class MathStatement;
+class Statement;
 using Scalar = mpf_class;
-using MathTerm = std::variant<MathStatement, Scalar>;
+using Term = std::variant<Statement, Scalar>;
 
-class MathStatement
+class Statement
 {
 public:
-    MathStatement() = default;
+    Statement() = default;
 
-    auto operator=(MathStatement const& other) -> MathStatement&;
-    MathStatement(MathStatement const& other);
+    auto operator=(Statement const& other) -> Statement&;
+    Statement(Statement const& other);
 
-    auto operator=(MathStatement&& other) noexcept -> MathStatement&;
-    MathStatement(MathStatement&& other) noexcept;
+    auto operator=(Statement&& other) noexcept -> Statement&;
+    Statement(Statement&& other) noexcept;
 
     [[nodiscard]] auto valid() const -> bool
     {
@@ -49,24 +50,24 @@ public:
     }
     [[nodiscard]] auto empty() const -> bool { return length() == 0; }
 
-    auto operator==(MathStatement const& rhs) const -> bool;
+    auto operator==(Statement const& rhs) const -> bool;
     [[nodiscard]] auto string() const -> std::string;
     [[nodiscard]] auto evaluate() const -> std::optional<Scalar>;
 
     [[nodiscard]] auto length() const -> size_t;
 
-    void reset(MathTerm&& initial);
-    auto reset(MathStatement&& initial) -> MathStatement&;
+    void reset(Term&& initial);
+    auto reset(Statement&& initial) -> Statement&;
 
-    void setFunction(MathUnaryFunction&& function);
+    void setFunction(UnaryFunction&& function);
 
     /**
      * @brief append - Append a new term prepended by an operator
      * @param mathOp - The binary operator that will come before the term.
      * PEMDAS order applies to the overall statement.
      */
-    [[nodiscard]] auto append(MathOp mathOp) -> MathTerm&;
-    [[nodiscard]] auto appendStatement(MathOp mathOp) -> MathStatement&;
+    [[nodiscard]] auto append(BinaryOp mathOp) -> Term&;
+    [[nodiscard]] auto appendStatement(BinaryOp mathOp) -> Statement&;
 
 private:
     [[nodiscard]] auto stringTerm(size_t index) const -> std::string;
@@ -75,8 +76,9 @@ private:
 
     // A function that is run as the statements final result. null optional
     // indicates the identity function, so a no-op.
-    std::optional<MathUnaryFunction> m_function;
+    std::optional<UnaryFunction> m_function;
     // A valid statement interleaves terms and operators, or is completely empty
-    std::vector<std::unique_ptr<MathTerm>> m_terms;
-    std::vector<MathOp> m_operators;
+    std::vector<std::unique_ptr<Term>> m_terms;
+    std::vector<BinaryOp> m_operators;
 };
+} // namespace calqmath

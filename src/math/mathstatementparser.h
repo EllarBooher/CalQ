@@ -8,13 +8,14 @@
 #include <string>
 #include <variant>
 
-class MathStatementParser
+namespace calqmath
+{
+class StatementParser
 {
 public:
-    explicit MathStatementParser(std::string const& rawInput);
+    explicit StatementParser(std::string const& rawInput);
 
-    auto execute(MathFunctionDatabase const& functions)
-        -> std::optional<MathStatement>;
+    auto execute(FunctionDatabase const& functions) -> std::optional<Statement>;
 
 private:
     enum class IncrementResult : uint8_t
@@ -32,13 +33,13 @@ private:
     };
     struct ParseStateOperator
     {
-        MathOp mathOp;
+        BinaryOp mathOp;
     };
     struct ParseStateNumber
     {
         size_t numberStartIndex{0};
         bool afterDecimal{false};
-        std::optional<MathOp> mathOp;
+        std::optional<BinaryOp> mathOp;
     };
 
     using ParseState = std::variant<
@@ -74,17 +75,17 @@ private:
      * error occured or if parsing is finished.
      */
     // NOLINTNEXTLINE
-    auto increment(MathFunctionDatabase const& functions) -> IncrementResult;
+    auto increment(FunctionDatabase const& functions) -> IncrementResult;
 
     /**
      * There is usually dangling state to clean-up, such as when equations end
      * in a digit. This method finishes parsing all that, and returns the final
-     * MathStatement if valid.
+     * Statement if valid.
      *
      * @brief finish - Returns the final result of parsing.
      * @return Returns whether or not the result is valid.
      */
-    auto finish() -> std::optional<MathStatement>;
+    auto finish() -> std::optional<Statement>;
 
     std::string const m_trimmed;
 
@@ -93,10 +94,10 @@ private:
      * destructed. statementDepthStack[0] contains a pointer to m_rootStatement,
      * and should generally be modified there.
      */
-    MathStatement m_rootStatement;
+    Statement m_rootStatement;
 
     /**
-     * A MathStatement is a tree-like structure, where individual terms can be
+     * A Statement is a tree-like structure, where individual terms can be
      * statements. As we build statements and add terms, we store a stack of the
      * path to the current deepest statement we are building.
      *
@@ -104,8 +105,9 @@ private:
      * index 0. Keeping this pointer to rootStatement simplifies
      * some of the access logic.
      */
-    std::stack<MathStatement*> m_statementDepthStack;
+    std::stack<Statement*> m_statementDepthStack;
 
     ParseState m_state{ParseStateOpened{}};
     size_t m_index{0};
 };
+} // namespace calqmath

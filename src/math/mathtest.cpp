@@ -28,7 +28,7 @@ private slots:
     static void test();
 };
 
-template <> auto QTest::toString(MathStatement const& statement) -> char*
+template <> auto QTest::toString(calqmath::Statement const& statement) -> char*
 {
     QString const output = QString::fromStdString(statement.string());
 
@@ -37,7 +37,7 @@ template <> auto QTest::toString(MathStatement const& statement) -> char*
     return qstrdup(bytes);
 }
 
-template <> auto QTest::toString(Scalar const& number) -> char*
+template <> auto QTest::toString(calqmath::Scalar const& number) -> char*
 {
     QString const output = QString::fromStdString(calqmath::toString(number));
 
@@ -48,7 +48,7 @@ template <> auto QTest::toString(Scalar const& number) -> char*
 
 template <>
 auto QTest::toString(
-    std::expected<Scalar, MathInterpretationError> const& result
+    std::expected<calqmath::Scalar, calqmath::InterpretError> const& result
 ) -> char*
 {
     QString output{};
@@ -69,7 +69,8 @@ auto QTest::toString(
 }
 
 template <>
-auto QTest::toString(std::optional<MathStatement> const& statement) -> char*
+auto QTest::toString(std::optional<calqmath::Statement> const& statement)
+    -> char*
 {
     QString output{};
 
@@ -90,7 +91,7 @@ auto QTest::toString(std::optional<MathStatement> const& statement) -> char*
 
 namespace
 {
-void testParse(MathInterpreter const& interpreter)
+void testParse(calqmath::Interpreter const& interpreter)
 {
     std::vector<std::string> const invalidTestCases{
         "0..0+0", "0..+0", "0+0..0", "0+0..", ".",  "..", "+-*/", "0+",
@@ -117,7 +118,7 @@ void testParse(MathInterpreter const& interpreter)
     }
 }
 
-void testParentheses(MathInterpreter const& interpreter)
+void testParentheses(calqmath::Interpreter const& interpreter)
 {
     std::vector<std::string> const invalidTestCases{
         "()",
@@ -151,21 +152,22 @@ void testParentheses(MathInterpreter const& interpreter)
         QCOMPARE(interpreter.parse(input), std::nullopt);
     }
 
-    std::vector<std::tuple<std::string, Scalar>> const interpretTestCases{
-        {"(1.1)", Scalar{"1.1"}},
-        {"((1.1))", Scalar{"1.1"}},
-        {"(((1.1)))", Scalar{"1.1"}},
+    std::vector<std::tuple<std::string, calqmath::Scalar>> const
+        interpretTestCases{
+            {"(1.1)", calqmath::Scalar{"1.1"}},
+            {"((1.1))", calqmath::Scalar{"1.1"}},
+            {"(((1.1)))", calqmath::Scalar{"1.1"}},
 
-        {"1.0 + (2.0)", 3.0},
-        {"(1.0) + 2.0", 3.0},
-        {"3.0 * (2.0)", 6.0},
-        {"(3.0) * (2.0)", 6.0},
+            {"1.0 + (2.0)", 3.0},
+            {"(1.0) + 2.0", 3.0},
+            {"3.0 * (2.0)", 6.0},
+            {"(3.0) * (2.0)", 6.0},
 
-        {"0.0 + (1.0 + (2.0 + (3.0 + (4.0 + (5.0)))))", 15.0},
-        {"((((((0.0) + 1.0) + 2.0) + 3.0) + 4.0) + 5.0)", 15.0},
+            {"0.0 + (1.0 + (2.0 + (3.0 + (4.0 + (5.0)))))", 15.0},
+            {"((((((0.0) + 1.0) + 2.0) + 3.0) + 4.0) + 5.0)", 15.0},
 
-        {"2.0 * (3.0 + 4.0)", 14.0},
-    };
+            {"2.0 * (3.0 + 4.0)", 14.0},
+        };
     for (auto const& [input, output] : interpretTestCases)
     {
         auto const statementResult{interpreter.parse(input)};
@@ -175,7 +177,7 @@ void testParentheses(MathInterpreter const& interpreter)
     }
 }
 
-void testWhitespace(MathInterpreter const& interpreter)
+void testWhitespace(calqmath::Interpreter const& interpreter)
 {
     std::vector<std::string> const whitespaceParseCases{
         " 0 - 1 + 2 / 3 * 4 ",
@@ -193,27 +195,28 @@ void testWhitespace(MathInterpreter const& interpreter)
     }
 }
 
-void testInterpret(MathInterpreter const& interpreter)
+void testInterpret(calqmath::Interpreter const& interpreter)
 {
-    std::vector<std::tuple<std::string, Scalar>> const successTestCases{
-        {"5", 5.0},
-        {"12345", 12345.0},
-        {"0+0", 0.0},
-        {"1+0", 1.0},
-        {"0+2", 2.0},
-        {"1/2", 0.5},
-        {"1/3", 1.0 / Scalar{3.0}},
-        {"1*2*3*4*5", 1.0 * 2.0 * 3.0 * 4.0 * 5.0},
-    };
+    std::vector<std::tuple<std::string, calqmath::Scalar>> const
+        successTestCases{
+            {"5", 5.0},
+            {"12345", 12345.0},
+            {"0+0", 0.0},
+            {"1+0", 1.0},
+            {"0+2", 2.0},
+            {"1/2", 0.5},
+            {"1/3", 1.0 / calqmath::Scalar{3.0}},
+            {"1*2*3*4*5", 1.0 * 2.0 * 3.0 * 4.0 * 5.0},
+        };
 
     for (auto const& [input, output] : successTestCases)
     {
         QCOMPARE(interpreter.interpret(input), output);
     }
 
-    std::vector<std::tuple<std::string, MathInterpretationError>> const
+    std::vector<std::tuple<std::string, calqmath::InterpretError>> const
         failureTestCases{
-            {"0+", MathInterpretationError::ParseError},
+            {"0+", calqmath::InterpretError::ParseError},
         };
 
     for (auto const& [input, output] : failureTestCases)
@@ -222,14 +225,19 @@ void testInterpret(MathInterpreter const& interpreter)
     }
 }
 
-void testOrderOfOperators(MathInterpreter const& interpreter)
+void testOrderOfOperators(calqmath::Interpreter const& interpreter)
 {
-    std::vector<std::tuple<std::string, Scalar>> const PEMDASTestCases{
-        {"1 * 2 + 3 / 4 - 5", (1.0 * 2.0) + (3.0 / Scalar{4.0}) - 5.0},
-        {"1 - 2 * 3 + 4 / 5", 1.0 - (2.0 * 3.0) + (4.0 / Scalar{5.0})},
-        {"1 / 2 - 3 * 4 + 5", (1.0 / Scalar{2.0}) - (3.0 * 4.0) + 5.0},
-        {"1 + 2 / 3 - 4 * 5", 1.0 + (2.0 / Scalar{3.0}) - (4.0 * 5.0)},
-    };
+    std::vector<std::tuple<std::string, calqmath::Scalar>> const
+        PEMDASTestCases{
+            {"1 * 2 + 3 / 4 - 5",
+             (1.0 * 2.0) + (3.0 / calqmath::Scalar{4.0}) - 5.0},
+            {"1 - 2 * 3 + 4 / 5",
+             1.0 - (2.0 * 3.0) + (4.0 / calqmath::Scalar{5.0})},
+            {"1 / 2 - 3 * 4 + 5",
+             (1.0 / calqmath::Scalar{2.0}) - (3.0 * 4.0) + 5.0},
+            {"1 + 2 / 3 - 4 * 5",
+             1.0 + (2.0 / calqmath::Scalar{3.0}) - (4.0 * 5.0)},
+        };
     for (auto const& [input, output] : PEMDASTestCases)
     {
         auto const actual = interpreter.interpret(input);
@@ -237,7 +245,7 @@ void testOrderOfOperators(MathInterpreter const& interpreter)
     }
 }
 
-void testFunctionParsing(MathInterpreter const& interpreter)
+void testFunctionParsing(calqmath::Interpreter const& interpreter)
 {
     std::vector<std::string> const invalidTestCases{
         "id()", "id(id())", "0.0 + id()", "id() + 0.0"
@@ -247,7 +255,7 @@ void testFunctionParsing(MathInterpreter const& interpreter)
         QVERIFY(!interpreter.parse(input).has_value());
     }
 
-    std::vector<std::tuple<std::string, Scalar>> const testCases{
+    std::vector<std::tuple<std::string, calqmath::Scalar>> const testCases{
         {"id(1)", 1.0},
         {"id(id(2))", 2.0},
         {"id(id(id(3)))", 3.0},
@@ -255,7 +263,7 @@ void testFunctionParsing(MathInterpreter const& interpreter)
         {"id(1.0 + id(4.0))", 5.0},
         {"id(id(4.0)+id(2.0))", 6.0},
         {"4.0 + id(3.0)", 7.0},
-        {"sqrt(2.0)", sqrt(Scalar{2.0})}
+        {"sqrt(2.0)", sqrt(calqmath::Scalar{2.0})}
     };
 
     for (auto const& [input, output] : testCases)
@@ -266,43 +274,43 @@ void testFunctionParsing(MathInterpreter const& interpreter)
 
 void testScalarStringify()
 {
-    std::vector<std::tuple<Scalar, std::string>> const testCases{
-        {Scalar{"0.00123"}, "1.23e-3"},
-        {Scalar{"0.0123"}, "0.012_3"},
-        {Scalar{"0.123"}, "0.123"},
-        {Scalar{"1.23"}, "1.23"},
-        {Scalar{"12.3"}, "12.3"},
-        {Scalar{"123.0"}, "123"},
-        {Scalar{"1230.0"}, "1_230"},
-        {Scalar{"12300.0"}, "12_300"},
-        {Scalar{"123000.0"}, "123_000"},
-        {Scalar{"1230000.0"}, "1_230_000"},
-        {Scalar{"12300000.0"}, "1.23e7"},
-        {Scalar{"123000000.0"}, "1.23e8"},
-        {Scalar{"1230000000.0"}, "1.23e9"},
-        {Scalar{"12300000000.0"}, "1.23e10"},
-        {Scalar{"123000000000.0"}, "1.23e11"},
+    std::vector<std::tuple<std::string, std::string>> const testCases{
+        {"0.00123", "1.23e-3"},
+        {"0.0123", "0.012_3"},
+        {"0.123", "0.123"},
+        {"1.23", "1.23"},
+        {"12.3", "12.3"},
+        {"123.0", "123"},
+        {"1230.0", "1_230"},
+        {"12300.0", "12_300"},
+        {"123000.0", "123_000"},
+        {"1230000.0", "1_230_000"},
+        {"12300000.0", "1.23e7"},
+        {"123000000.0", "1.23e8"},
+        {"1230000000.0", "1.23e9"},
+        {"12300000000.0", "1.23e10"},
+        {"123000000000.0", "1.23e11"},
 
-        {Scalar{"0.1234567890123"}, "0.123_456_789"},
-        {Scalar{"1234567891234.5"}, "1.234_567_891e12"},
+        {"0.1234567890123", "0.123_456_789"},
+        {"1234567891234.5", "1.234_567_891e12"},
 
-        {Scalar{"0"}, "0"},
-        {Scalar{"0.0"}, "0"},
+        {"0", "0"},
+        {"0.0", "0"},
     };
 
     for (auto const& [input, output] : testCases)
     {
-        QCOMPARE(calqmath::toString(input), output);
+        QCOMPARE(calqmath::toString(calqmath::Scalar{input}), output);
     }
 }
 
-void testMinimalPrecision(MathInterpreter const& interpreter)
+void testMinimalPrecision(calqmath::Interpreter const& interpreter)
 {
     for (size_t i = 0; i < calqmath::getBignumBackendPrecision(); i++)
     {
         std::string const input{std::format("1{0}+1-1{0}", std::string(i, '0'))
         };
-        QCOMPARE(interpreter.interpret(input), Scalar{"1"});
+        QCOMPARE(interpreter.interpret(input), calqmath::Scalar{"1"});
     }
 }
 
@@ -310,7 +318,7 @@ void testMinimalPrecision(MathInterpreter const& interpreter)
 
 void TestMathInterpreter::test()
 {
-    MathInterpreter const interpreter{};
+    calqmath::Interpreter const interpreter{};
 
     testParse(interpreter);
     testWhitespace(interpreter);

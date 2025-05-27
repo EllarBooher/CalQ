@@ -23,40 +23,43 @@ auto trim(std::string const& rawInput) -> std::string
 }
 } // namespace
 
-MathInterpreter::MathInterpreter()
+namespace calqmath
+{
+Interpreter::Interpreter()
 {
     // TODO: hoist this somewhere more reasonable, for now interpreter acts as
     // the library frontend.
     calqmath::initBignumBackend();
 }
 
-auto MathInterpreter::prettify(std::string const& rawInput) -> std::string
+auto Interpreter::prettify(std::string const& rawInput) -> std::string
 {
     return trim(rawInput);
 }
 
-auto MathInterpreter::parse(std::string const& rawInput) const
-    -> std::optional<MathStatement>
+auto Interpreter::parse(std::string const& rawInput) const
+    -> std::optional<Statement>
 {
-    MathStatementParser parser{rawInput};
+    StatementParser parser{rawInput};
     return parser.execute(m_functions);
 }
 
-auto MathInterpreter::interpret(std::string const& rawInput) const
-    -> std::expected<Scalar, MathInterpretationError>
+auto Interpreter::interpret(std::string const& rawInput) const
+    -> std::expected<Scalar, InterpretError>
 {
     auto const parsed = parse(rawInput);
     if (!parsed.has_value())
     {
-        return std::unexpected(MathInterpretationError::ParseError);
+        return std::unexpected(InterpretError::ParseError);
     }
 
-    MathStatement const& statement = parsed.value();
+    Statement const& statement = parsed.value();
     auto const evaluated = statement.evaluate();
     if (!evaluated.has_value())
     {
-        return std::unexpected(MathInterpretationError::EvaluationError);
+        return std::unexpected(InterpretError::EvaluationError);
     }
 
     return evaluated.value();
 }
+} // namespace calqmath
