@@ -21,6 +21,7 @@ public:
 
 private slots:
     void onLineEnterPressed();
+    void onLineTextUpdated(QString const&);
 
 private:
     std::unique_ptr<Ui::MainWindow> ui;

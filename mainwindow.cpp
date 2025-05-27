@@ -8,6 +8,12 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     connect(ui->lineEdit, &QLineEdit::returnPressed, this, &MainWindow::onLineEnterPressed);
+    connect(
+        ui->lineEdit,
+        &QLineEdit::textEdited,
+        this,
+        &MainWindow::onLineTextUpdated
+    );
 
     m_messages = std::make_unique<QStringList>();
     m_messagesModel = std::make_unique<QStringListModel>();
@@ -17,6 +23,28 @@ MainWindow::MainWindow(QWidget *parent)
 }
 
 MainWindow::~MainWindow() {}
+
+auto mathResultToQString(
+    std::expected<double, MathInterpretationError> const result
+) -> QString
+{
+    if (result.has_value())
+    {
+        return QString::number(result.value());
+    }
+    else
+    {
+        switch (result.error())
+        {
+        case MathInterpretationError::ParseError:
+            return "Parse Error";
+            break;
+        case MathInterpretationError::EvaluationError:
+            return "Evaluation Error";
+            break;
+        }
+    }
+}
 
 void MainWindow::onLineEnterPressed()
 {
@@ -28,29 +56,28 @@ void MainWindow::onLineEnterPressed()
 
     auto const messageStd = newMessage.toStdString();
 
+    auto const prettified = "> " + MathInterpreter::prettify(messageStd);
+    m_messages->append(QString::fromUtf8(prettified));
+
     auto const mathResult = MathInterpreter::interpret(messageStd);
-
-    m_messages->append(
-        ">" + QString::fromUtf8(MathInterpreter::prettify(messageStd))
-    );
-
-    if (mathResult.has_value())
-    {
-        m_messages->append(QString::number(mathResult.value()));
-    }
-    else
-    {
-        switch (mathResult.error())
-        {
-        case MathInterpretationError::ParseError:
-            m_messages->append("Parse Error");
-            break;
-        case MathInterpretationError::EvaluationError:
-            m_messages->append("Evaluation Error");
-            break;
-        }
-    }
+    m_messages->append(mathResultToQString(mathResult));
 
     m_messagesModel->setStringList(*m_messages);
     ui->lineEdit->clear();
+}
+
+void MainWindow::onLineTextUpdated(QString const& text)
+{
+    if (text.isEmpty())
+    {
+        return;
+    }
+
+    auto const messageStd = text.toStdString();
+
+    auto const prettified = "> " + MathInterpreter::prettify(messageStd);
+    ui->labelEquation->setText(QString::fromUtf8(prettified));
+
+    auto const mathResult = MathInterpreter::interpret(messageStd);
+    ui->labelResult->setText(mathResultToQString(mathResult));
 };

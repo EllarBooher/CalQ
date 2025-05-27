@@ -23,6 +23,23 @@
      </widget>
     </item>
     <item>
+     <widget class="QLabel" name="labelEquation">
+      <property name="text">
+       <string>TextLabel</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="labelResult">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+      <property name="text">
+       <string>TextLabel</string>
+      </property>
+     </widget>
+    </item>
+    <item>
      <widget class="QLineEdit" name="lineEdit">
       <property name="enabled">
        <bool>true</bool>
