@@ -155,11 +155,6 @@ auto MathStatement::evaluate() const -> std::optional<double>
         terms.push_back(evaluateResult.value());
     }
 
-    if (terms.size() == 1)
-    {
-        return terms[0];
-    }
-
     std::deque<MathOp> operators{m_operators.begin(), m_operators.end()};
 
     // Reduce while evaluating operators for adjacent terms.

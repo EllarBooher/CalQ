@@ -196,7 +196,7 @@ void testOrderOfOperators(MathInterpreter const& interpreter)
     }
 }
 
-void testFunctions(MathInterpreter const& interpreter)
+void testFunctionParsing(MathInterpreter const& interpreter)
 {
     std::vector<std::string> const invalidTestCases{
         "id()", "id(id())", "0.0 + id()", "id() + 0.0"
@@ -214,6 +214,7 @@ void testFunctions(MathInterpreter const& interpreter)
         {"id(1.0 + id(4.0))", 5.0},
         {"id(id(4.0)+id(2.0))", 6.0},
         {"4.0 + id(3.0)", 7.0},
+        {"sqrt(2.0)", std::numbers::sqrt2}
     };
 
     for (auto const& [input, output] : testCases)
@@ -233,7 +234,7 @@ void TestMathInterpreter::test()
     testParentheses(interpreter);
     testInterpret(interpreter);
     testOrderOfOperators(interpreter);
-    testFunctions(interpreter);
+    testFunctionParsing(interpreter);
 }
 
 QTEST_MAIN(TestMathInterpreter)
