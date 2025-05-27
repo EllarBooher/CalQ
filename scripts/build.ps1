@@ -167,13 +167,11 @@ if($LASTEXITCODE -ne 0)
 
 ">>> & $CMake ``
     --build $OutDir ``
-    --target all ``
     --config $BuildConfig"
 if($DryRun) {
     "   -DryRun skipped"
 } else {
-    & $CMake --build $OutDir `
-        --config $BuildConfig | MyLog
+    & $CMake --build $OutDir --config $BuildConfig | MyLog
     if($LASTEXITCODE -ne 0)
     {
         ""
