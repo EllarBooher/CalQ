@@ -52,16 +52,10 @@ function MyLog() {
     }
 }
 
-if(Test-Path $OutDir) {
-    # Remove-Item $OutDir -Recurse -Confirm
-}
-# New-Item $OutDir -Type "Directory" | Out-Null
-
 ""
 "***************************************"
 "************ BUILDING ALL *************"
 "***************************************"
-
 ""
 
 "Building x64-windows-msvc..."
@@ -125,7 +119,6 @@ try {
 "***************************************"
 "*************** TESTING ***************"
 "***************************************"
-
 ""
 
 if($MSVCSuccess) {
