@@ -1,18 +1,20 @@
 #ifndef MATHINTERPRETER_H
 #define MATHINTERPRETER_H
 
+#include <cstdint>
 #include <expected>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
-enum class MathInterpretationError
+enum class MathInterpretationError : uint8_t
 {
     ParseError,
     EvaluationError,
 };
 
-enum class MathOp
+enum class MathOp : uint8_t
 {
     Plus,
     Minus,
@@ -20,21 +22,36 @@ enum class MathOp
     Divide
 };
 
-struct MathStatement
+class MathStatement
 {
-    std::vector<double> terms;
-    std::vector<MathOp> operators;
+public:
+    explicit MathStatement(
+        std::vector<double> terms, std::vector<MathOp> operators
+    );
 
-    auto isValid() const -> bool
+    [[nodiscard]] auto terms() const -> std::span<double const>
+    {
+        return m_terms;
+    }
+    [[nodiscard]] auto operators() const -> std::span<MathOp const>
+    {
+        return m_operators;
+    }
+
+    [[nodiscard]] auto isValid() const -> bool
     {
         return (
-            terms.empty() && operators.empty()
-            || operators.size() == terms.size() - 1
+            m_terms.empty() && m_operators.empty()
+            || m_operators.size() == m_terms.size() - 1
         );
     }
-};
 
-auto operator==(MathStatement const& lhs, MathStatement const& rhs) -> bool;
+    auto operator==(MathStatement const& rhs) const -> bool;
+
+private:
+    std::vector<double> m_terms;
+    std::vector<MathOp> m_operators;
+};
 
 /**
  * Note: parantheses are not yet supported.

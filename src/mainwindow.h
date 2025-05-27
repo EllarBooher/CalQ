@@ -21,13 +21,13 @@ public:
 
 private slots:
     void onLineEnterPressed();
-    void onLineTextUpdated(QString const&);
+    void onLineTextUpdated(QString const& newText);
     void setPreviewLabels(QString const& equation, QString const& result);
     void resetPreviewLabels();
 
+    // NOLINTNEXTLINE (readability-redundant-access-specifiers)
 private:
     std::unique_ptr<Ui::MainWindow> ui;
-
     std::unique_ptr<QStringList> m_messages;
     std::unique_ptr<QStringListModel> m_messagesModel;
 };

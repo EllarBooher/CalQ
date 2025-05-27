@@ -5,6 +5,9 @@
 
 HeaderFileExtensions: ['', 'h','hh','hpp','hxx']
 ImplementationFileExtensions: ['c','cc','cpp','cxx']
+# HeaderFilterRegex is broken in some versions, see https://github.com/llvm/llvm-project/pull/133582.
+# At least 20.1.2 fixes this.
+HeaderFilterRegex: '.*/src/.*'
 Checks: >
   -*,
   clang-*,

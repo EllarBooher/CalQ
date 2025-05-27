@@ -11,16 +11,16 @@ enable_testing(true)
 
 qt_add_library(
     CalQMath
-    math/mathinterpreter.h math/mathinterpreter.cpp
+    src/math/mathinterpreter.h src/math/mathinterpreter.cpp
 )
 set_property(TARGET CalQMath PROPERTY CXX_STANDARD 23)
 
 qt_add_executable(CalQ
     WIN32 MACOSX_BUNDLE
-    main.cpp
-    mainwindow.cpp
-    mainwindow.h
-    mainwindow.ui
+    src/main.cpp
+    src/mainwindow.cpp
+    src/mainwindow.h
+    src/mainwindow.ui
 )
 set_property(TARGET CalQ PROPERTY CXX_STANDARD 23)
 target_link_libraries(CalQ
@@ -32,7 +32,7 @@ target_link_libraries(CalQ
 
 qt_add_executable(CalQTest
     WIN32 MACOSX_BUNDLE
-    math/mathtest.cpp
+    src/math/mathtest.cpp
 )
 set_property(TARGET CalQTest PROPERTY CXX_STANDARD 23)
 target_link_libraries(CalQTest

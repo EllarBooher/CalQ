@@ -81,14 +81,14 @@ void MainWindow::onLineEnterPressed()
     resetPreviewLabels();
 }
 
-void MainWindow::onLineTextUpdated(QString const& text)
+void MainWindow::onLineTextUpdated(QString const& newText)
 {
-    if (text.isEmpty())
+    if (newText.isEmpty())
     {
         return;
     }
 
-    auto const messageStd = text.toStdString();
+    auto const messageStd = newText.toStdString();
 
     auto const equation =
         QString::fromUtf8(MathInterpreter::prettify(messageStd));

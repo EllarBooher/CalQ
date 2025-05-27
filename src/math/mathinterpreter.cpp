@@ -252,7 +252,7 @@ private:
             }
         }
 
-        MathStatement statement{.terms = terms, .operators = operators};
+        MathStatement statement{terms, operators};
 
         if (!statement.isValid())
         {
@@ -295,9 +295,11 @@ auto MathInterpreter::evaluate(MathStatement const& statement)
         return std::nullopt;
     }
 
-    std::deque<double> terms{statement.terms.begin(), statement.terms.end()};
+    std::deque<double> terms{
+        statement.terms().begin(), statement.terms().end()
+    };
     std::deque<MathOp> operators{
-        statement.operators.begin(), statement.operators.end()
+        statement.operators().begin(), statement.operators().end()
     };
 
     // Reduce while evaluating operators for adjacent terms.
@@ -379,7 +381,15 @@ auto MathInterpreter::interpret(std::string const& rawInput)
     return result;
 }
 
-auto operator==(MathStatement const& lhs, MathStatement const& rhs) -> bool
+MathStatement::MathStatement(
+    std::vector<double> terms, std::vector<MathOp> operators
+)
+    : m_terms(std::move(terms))
+    , m_operators(std::move(operators))
 {
-    return lhs.terms == rhs.terms && lhs.operators == rhs.operators;
+}
+
+auto MathStatement::operator==(MathStatement const& rhs) const -> bool
+{
+    return m_terms == rhs.m_terms && m_operators == rhs.m_operators;
 }
