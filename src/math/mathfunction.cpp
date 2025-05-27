@@ -3,18 +3,15 @@
 #include "backend/functions.h"
 #include <cmath>
 
-#define UNARY(name, input, output)                                             \
-    /* NOLINTBEGIN(readability-identifier-length)*/                            \
-    {name, [](Scalar const& input) { return output; }}                         \
-    /* NOLINTEND(readability-identifier-length)*/
-
 namespace calqmath
 {
 FunctionDatabase::FunctionDatabase()
 {
     m_unaryFunctions = std::map<std::string, UnaryFunction>{
-        UNARY("id", x, Functions::id(x)),
-        UNARY("sqrt", x, Functions::sqrt(x)),
+        {"id", Functions::id},
+        {"sqrt", Functions::sqrt},
+        {"exp", Functions::exp},
+        {"log", Functions::log},
     };
 }
 

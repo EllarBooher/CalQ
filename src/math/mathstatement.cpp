@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <deque>
 #include <expected>
+#include <iostream>
 #include <optional>
 #include <string>
 #include <variant>
@@ -195,7 +196,6 @@ auto Statement::evaluate() const -> std::optional<Scalar>
 
         terms.pop_front();
         operators.pop_front();
-        index -= 1;
 
         if (mathOperator == BinaryOp::Plus)
         {

@@ -26,8 +26,9 @@ list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Test)
 
-set(GMP_USE_STATIC_LIBS ON)
-find_package(GMP REQUIRED)
+set(MPFR_USE_STATIC_LIBS ON)
+find_package(MPFR REQUIRED)
+set(vendor_include_dir "${CMAKE_SOURCE_DIR}/vendor")
 
 qt_standard_project_setup()
 
@@ -42,8 +43,8 @@ qt_add_library(CalQMath
   src/math/backend/functions.h   src/math/backend/functions.cpp
 )
 set_property(TARGET CalQMath PROPERTY CXX_STANDARD 23)
-target_include_directories(CalQMath PUBLIC ${GMPXX_INCLUDE_DIR})
-target_link_libraries(CalQMath PUBLIC ${GMPXX_LIBRARY} ${GMP_LIBRARY})
+target_include_directories(CalQMath SYSTEM PUBLIC ${vendor_include_dir})
+target_link_libraries(CalQMath PUBLIC MPFR)
 
 qt_add_executable(CalQ
   WIN32 MACOSX_BUNDLE

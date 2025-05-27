@@ -51,6 +51,19 @@ template <> auto QTest::toString(calqmath::Scalar const& number) -> char*
     return qstrdup(bytes);
 }
 
+template <> auto QTest::toString(calqmath::InterpretError const& error) -> char*
+{
+    switch (error)
+    {
+    case calqmath::InterpretError::ParseError:
+        return qstrdup("Parse Error");
+    case calqmath::InterpretError::EvaluationError:
+        return qstrdup("Evaluation Error");
+    default:
+        return qstrdup("Unknown Error");
+    }
+}
+
 template <>
 auto QTest::toString(
     std::expected<calqmath::Scalar, calqmath::InterpretError> const& result
@@ -102,7 +115,6 @@ void testParse(calqmath::Interpreter const& interpreter)
         "0..0+0", "0..+0", "0+0..0", "0+0..", ".",  "..", "+-*/", "0+",
         "+0",     "++",    "+",      "0-",    "-0", "--", "-",    "0*",
         "*0",     "**",    "*",      "0/",    "/0", "//", "/",
-
     };
 
     for (auto const& input : invalidTestCases)
@@ -271,7 +283,9 @@ void testFunctionParsing(calqmath::Interpreter const& interpreter)
         {"id(1.0 + id(4.0))", calqmath::Scalar{"5.0"}},
         {"id(id(4.0)+id(2.0))", calqmath::Scalar{"6.0"}},
         {"4.0 + id(3.0)", calqmath::Scalar{"7.0"}},
-        {"sqrt(2.0)", calqmath::Functions::sqrt(calqmath::Scalar{"2.0"})}
+        {"sqrt(2.0)", calqmath::Functions::sqrt(calqmath::Scalar{"2.0"})},
+        {"exp(2.0)", calqmath::Functions::exp(calqmath::Scalar{"2.0"})},
+        {"log(2.0)", calqmath::Functions::log(calqmath::Scalar{"2.0"})},
     };
 
     for (auto const& [input, output] : testCases)
@@ -335,6 +349,10 @@ void TestMathInterpreter::test()
 {
     calqmath::Interpreter const interpreter{};
 
+    // Test this first, since a lot, including debugging, relies on being able
+    // to stringify properly.
+    testScalarStringify();
+
     testParse(interpreter);
     testWhitespace(interpreter);
     testParentheses(interpreter);
@@ -342,8 +360,6 @@ void TestMathInterpreter::test()
     testOrderOfOperators(interpreter);
     testFunctionParsing(interpreter);
     testMinimalPrecision(interpreter);
-
-    testScalarStringify();
 }
 
 QTEST_MAIN(TestMathInterpreter)

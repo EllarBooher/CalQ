@@ -30,6 +30,12 @@ find_library(GMP_LIBRARY
   HINTS ${lib_hints}
 )
 
+add_library(GMP STATIC IMPORTED)
+set_target_properties(GMP PROPERTIES
+  IMPORTED_LOCATION ${GMP_LIBRARY}
+)
+target_include_directories(GMP INTERFACE ${GMPXX_INCLUDE_DIR})
+
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(
   GMP

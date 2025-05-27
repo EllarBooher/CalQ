@@ -492,9 +492,14 @@ auto StatementParser::finish() -> std::optional<Statement>
     {
         try
         {
-            Scalar const number{m_trimmed.substr(
+            auto const str = m_trimmed.substr(
                 state.numberStartIndex, m_index - state.numberStartIndex
-            )};
+            );
+            if (std::ranges::find_if(str, checkIsDigit) == str.end())
+            {
+                return false;
+            }
+            Scalar const number{str};
 
             auto& topLevelStatement = *m_statementDepthStack.top();
             if (!topLevelStatement.empty() && state.mathOp == std::nullopt)

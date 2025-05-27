@@ -1,12 +1,12 @@
 #include "number.h"
 
+#include "mpreal.h"
+#include "numberimpl.h"
 #include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <format>
-
-#include "gmpxx.h"
-#include "numberimpl.h"
+#include <utility>
 
 namespace calqmath
 {
@@ -16,20 +16,22 @@ void initBignumBackend()
     // performing a lot of calculations. Most user input statements will have a
     // couple dozen calculations at most.
     auto constexpr DEFAULT_MINIMUM_PRECISION{500};
-    mpf_set_default_prec(static_cast<mp_bitcnt_t>(DEFAULT_MINIMUM_PRECISION));
+    mpfr::mpreal::set_default_prec(
+        static_cast<mpfr_prec_t>(DEFAULT_MINIMUM_PRECISION)
+    );
 }
 
 auto getBignumBackendPrecision(size_t const base) -> size_t
 {
     assert(base > 0);
-    return static_cast<size_t>(mpf_get_default_prec()) * std::numbers::ln2
-         / std::log(base);
+    return static_cast<size_t>(mpfr::mpreal::get_default_prec())
+         * std::numbers::ln2 / std::log(base);
 }
 
 Scalar::Scalar(std::string const& representation, uint16_t const base)
 {
     m_impl = std::make_unique<detail::ScalarImpl>(
-        mpf_class{representation, mpf_get_default_prec(), base}
+        mpfr::mpreal{representation, mpfr::mpreal::get_default_prec(), base}
     );
 }
 
@@ -49,16 +51,34 @@ Scalar::Scalar(Scalar&& other) noexcept { *this = std::move(other); }
 
 Scalar::Scalar(Scalar const& other) { *this = other; }
 
+Scalar::Scalar() { m_impl = std::make_unique<detail::ScalarImpl>(); }
 Scalar::~Scalar() = default;
 
 auto Scalar::toMantissaExponent() const -> std::tuple<std::string, ptrdiff_t>
 {
-    size_t constexpr PRECISION_DIGITS = 10;
-    mp_exp_t exponent;
-    auto mantissa =
-        m_impl->value.get_str(exponent, DEFAULT_BASE, PRECISION_DIGITS);
+    std::tuple<std::string, ptrdiff_t> result{};
 
-    return std::make_tuple(mantissa, exponent);
+    size_t constexpr PRECISION_DIGITS = 10;
+    mpfr_exp_t exponent;
+
+    auto* const pMantissa = mpfr_get_str(
+        nullptr,
+        &exponent,
+        DEFAULT_BASE,
+        PRECISION_DIGITS,
+        m_impl->value.mpfr_srcptr(),
+        mpfr::mpreal::get_default_rnd()
+    );
+
+    std::get<0>(result) = pMantissa;
+    std::get<1>(result) = static_cast<ptrdiff_t>(exponent);
+
+    auto& str = std::get<0>(result);
+    str.erase(str.find_last_not_of('0') + 1);
+
+    mpfr_free_str(pMantissa);
+
+    return result;
 }
 
 struct ScalarStringDecomposition
@@ -207,41 +227,36 @@ auto Scalar::operator!=(Scalar const& rhs) const -> bool
 auto Scalar::operator+(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
-    result.m_impl = std::make_unique<detail::ScalarImpl>(
-        this->m_impl->value + rhs.m_impl->value
-    );
+    result.m_impl->value = this->m_impl->value;
+    result.m_impl->value += rhs.m_impl->value;
     return result;
 }
 auto Scalar::operator-(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
-    result.m_impl = std::make_unique<detail::ScalarImpl>(
-        this->m_impl->value - rhs.m_impl->value
-    );
+    result.m_impl->value = this->m_impl->value;
+    result.m_impl->value -= rhs.m_impl->value;
     return result;
 }
 auto Scalar::operator*(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
-    result.m_impl = std::make_unique<detail::ScalarImpl>(
-        this->m_impl->value * rhs.m_impl->value
-    );
+    result.m_impl->value = this->m_impl->value;
+    result.m_impl->value *= rhs.m_impl->value;
     return result;
 }
 auto Scalar::operator/(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
-    result.m_impl = std::make_unique<detail::ScalarImpl>(
-        this->m_impl->value / rhs.m_impl->value
-    );
+    result.m_impl->value = this->m_impl->value;
+    result.m_impl->value /= rhs.m_impl->value;
     return result;
 }
 
 Scalar::Scalar(detail::ScalarImpl&& impl)
 {
     m_impl = std::make_unique<detail::ScalarImpl>(std::move(impl.value));
-    impl.value = mpf_class{};
+    impl.value = mpfr::mpreal{};
 }
 
-Scalar::Scalar() = default;
 } // namespace calqmath
