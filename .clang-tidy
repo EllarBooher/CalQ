@@ -1,0 +1,18 @@
+# Justifications for rule removals:
+#
+# misc-include-cleaner
+#  Not super accurate or useful, need to set up IWYU for better detection including forward declares.
+
+HeaderFileExtensions: ['', 'h','hh','hpp','hxx']
+ImplementationFileExtensions: ['c','cc','cpp','cxx']
+Checks: >
+  -*,
+  clang-*,
+  misc-*,
+  -misc-include-cleaner,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*
+
+WarningsAsErrors: '*'

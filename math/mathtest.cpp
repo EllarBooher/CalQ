@@ -1,16 +1,29 @@
 #include "mathinterpreter.h"
+
+#include <QByteArray>
+#include <QObject>
+#include <QString>
 #include <QTest>
+
+#include <cstddef>
+#include <expected>
+#include <optional>
+#include <string>
+#include <tuple>
+#include <vector>
 
 class TestMathInterpreter : public QObject
 {
     Q_OBJECT
 private slots:
-    void test();
+    static void test();
 };
 
-auto mathOperatorToString(MathOp const op) -> char const*
+namespace
 {
-    switch (op)
+auto mathOperatorToString(MathOp const mathOp) -> char const*
+{
+    switch (mathOp)
     {
     case MathOp::Plus:
         return "+";
@@ -24,6 +37,7 @@ auto mathOperatorToString(MathOp const op) -> char const*
 
     return "?";
 }
+} // namespace
 
 template <> auto QTest::toString(MathStatement const& statement) -> char*
 {
@@ -45,9 +59,9 @@ template <> auto QTest::toString(MathStatement const& statement) -> char*
         }
     }
 
-    QByteArray const ba = output.toUtf8();
+    QByteArray const bytes = output.toUtf8();
 
-    return qstrdup(ba);
+    return qstrdup(bytes);
 }
 
 template <>
@@ -65,12 +79,14 @@ auto QTest::toString(std::optional<MathStatement> const& statement) -> char*
         output += "nullopt";
     }
 
-    QByteArray const ba = output.toUtf8();
+    QByteArray const bytes = output.toUtf8();
 
-    return qstrdup(ba);
+    return qstrdup(bytes);
 }
 
-void TestMathInterpreter::test()
+namespace
+{
+void testParse()
 {
     std::vector<std::tuple<std::string, std::optional<MathStatement>>> const
         parseTestCases{
@@ -136,11 +152,14 @@ void TestMathInterpreter::test()
             {"//", std::nullopt},
             {"/", std::nullopt},
         };
-    for (auto& [input, output] : parseTestCases)
+    for (auto const& [input, output] : parseTestCases)
     {
         QCOMPARE(MathInterpreter::parse(input), output);
     }
+}
 
+void testWhitespace()
+{
     std::vector<std::tuple<std::vector<std::string>, MathStatement>> const
         whitespaceParseCases{
             {{"0-1+2/3*4",
@@ -160,14 +179,17 @@ void TestMathInterpreter::test()
                       MathOp::Multiply},
              }}
         };
-    for (auto& [inputs, output] : whitespaceParseCases)
+    for (auto const& [inputs, output] : whitespaceParseCases)
     {
-        for (auto& input : inputs)
+        for (auto const& input : inputs)
         {
             QCOMPARE(MathInterpreter::parse(input), output);
         }
     }
+}
 
+void testEvaluation()
+{
     std::vector<std::tuple<MathStatement, std::optional<double>>> const
         evaluateTestCases{
             {MathStatement{.terms = {0.0}, .operators = {MathOp::Plus}},
@@ -193,11 +215,14 @@ void TestMathInterpreter::test()
              1.0 * 2.0 * 3.0 * 4.0 * 5.0},
 
         };
-    for (auto& [input, output] : evaluateTestCases)
+    for (auto const& [input, output] : evaluateTestCases)
     {
         QCOMPARE(MathInterpreter::evaluate(input), output);
     }
+}
 
+void testOrderOfOperators()
+{
     std::vector<std::tuple<std::vector<MathOp>, double>> const PEMDASTestCases{
         {{
              MathOp::Multiply,
@@ -205,38 +230,46 @@ void TestMathInterpreter::test()
              MathOp::Divide,
              MathOp::Minus,
          },
-         1.0 * 2.0 + 3.0 / 4.0 - 5.0},
+         (1.0 * 2.0) + (3.0 / 4.0) - 5.0},
         {{
              MathOp::Minus,
              MathOp::Multiply,
              MathOp::Plus,
              MathOp::Divide,
          },
-         1.0 - 2.0 * 3.0 + 4.0 / 5.0},
+         1.0 - (2.0 * 3.0) + (4.0 / 5.0)},
         {{
              MathOp::Divide,
              MathOp::Minus,
              MathOp::Multiply,
              MathOp::Plus,
          },
-         1.0 / 2.0 - 3.0 * 4.0 + 5.0},
+         (1.0 / 2.0) - (3.0 * 4.0) + 5.0},
         {{
              MathOp::Plus,
              MathOp::Divide,
              MathOp::Minus,
              MathOp::Multiply,
          },
-         1.0 + 2.0 / 3.0 - 4.0 * 5.0},
+         1.0 + (2.0 / 3.0) - (4.0 * 5.0)},
     };
-    for (auto& [ops, output] : PEMDASTestCases)
+    for (auto const& [ops, output] : PEMDASTestCases)
     {
-        QCOMPARE(
-            MathInterpreter::evaluate(MathStatement{
-                .terms = {1.0, 2.0, 3.0, 4.0, 5.0}, .operators = ops
-            }),
-            output
-        );
+        MathStatement const testStatement{
+            .terms = {1.0, 2.0, 3.0, 4.0, 5.0}, .operators = ops
+        };
+        QCOMPARE(MathInterpreter::evaluate(testStatement), output);
     }
+}
+
+} // namespace
+
+void TestMathInterpreter::test()
+{
+    testParse();
+    testWhitespace();
+    testEvaluation();
+    testOrderOfOperators();
 }
 
 QTEST_MAIN(TestMathInterpreter)

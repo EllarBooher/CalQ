@@ -2,6 +2,16 @@
 #include "math/mathinterpreter.h"
 #include "ui_mainwindow.h"
 
+#include <QLineEdit>
+#include <QMainWindow>
+#include <QString>
+#include <QStringList>
+#include <QStringListModel>
+#include <QWidget>
+
+#include <expected>
+#include <memory>
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -22,8 +32,10 @@ MainWindow::MainWindow(QWidget *parent)
     ui->listView->setModel(m_messagesModel.get());
 }
 
-MainWindow::~MainWindow() {}
+MainWindow::~MainWindow() = default;
 
+namespace
+{
 auto mathResultToQString(
     std::expected<double, MathInterpretationError> const result
 ) -> QString
@@ -32,19 +44,18 @@ auto mathResultToQString(
     {
         return QString::number(result.value());
     }
-    else
+
+    switch (result.error())
     {
-        switch (result.error())
-        {
-        case MathInterpretationError::ParseError:
-            return "Parse Error";
-            break;
-        case MathInterpretationError::EvaluationError:
-            return "Evaluation Error";
-            break;
-        }
+    case MathInterpretationError::ParseError:
+        return "Parse Error";
+    case MathInterpretationError::EvaluationError:
+        return "Evaluation Error";
+    default:
+        return "Unknown Error";
     }
 }
+} // namespace
 
 void MainWindow::onLineEnterPressed()
 {

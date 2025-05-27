@@ -3,6 +3,9 @@ project(CalQ LANGUAGES CXX)
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Test)
 
+set(CMAKE_CXX_FLAGS "-Werror")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 qt_standard_project_setup()
 
 enable_testing(true)
@@ -61,3 +64,11 @@ qt_generate_deploy_app_script(
     NO_UNSUPPORTED_PLATFORM_ERROR
 )
 install(SCRIPT ${deploy_script})
+
+include(cmake/clang-tidy.cmake)
+set_target_properties(
+    CalQ CalQTest CalQMath
+    PROPERTIES
+        CXX_CLANG_TIDY
+            "${CLANG_TIDY_PATH}"
+)

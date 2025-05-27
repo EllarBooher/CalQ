@@ -1,13 +1,22 @@
 #include "mathinterpreter.h"
 
 #include <cassert>
+#include <cctype>
+#include <cstddef>
+#include <cstdint>
 #include <deque>
+#include <expected>
+#include <optional>
 #include <stdexcept>
+#include <string>
 #include <unordered_set>
+#include <vector>
 
+namespace
+{
 auto checkIsDigit(char const character) -> bool
 {
-    static std::unordered_set<char> digits{
+    static std::unordered_set<char> const digits{
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
     };
 
@@ -16,25 +25,34 @@ auto checkIsDigit(char const character) -> bool
 auto checkIsDecimal(char const character) -> bool { return character == '.'; }
 auto checkIsOperator(char const character) -> bool
 {
-    static std::unordered_set<char> operators{'+', '-', '*', '/'};
+    static std::unordered_set<char> const operators{'+', '-', '*', '/'};
     return operators.contains(character);
 }
 
-enum class StatementCharacterType
+enum class StatementCharacterType : uint8_t
 {
     MathOperator,
     Digit,
     Decimal
 };
+
 auto parseCharacter(char const character)
     -> std::optional<StatementCharacterType>
 {
     if (checkIsDigit(character))
+    {
         return StatementCharacterType::Digit;
-    else if (checkIsOperator(character))
+    }
+
+    if (checkIsOperator(character))
+    {
         return StatementCharacterType::MathOperator;
-    else if (checkIsDecimal(character))
+    }
+
+    if (checkIsDecimal(character))
+    {
         return StatementCharacterType::Decimal;
+    }
 
     return std::nullopt;
 }
@@ -42,13 +60,24 @@ auto parseCharacter(char const character)
 auto parseOperator(char const character) -> std::optional<MathOp>
 {
     if (character == '+')
+    {
         return MathOp::Plus;
-    else if (character == '-')
+    }
+
+    if (character == '-')
+    {
         return MathOp::Minus;
-    else if (character == '*')
+    }
+
+    if (character == '*')
+    {
         return MathOp::Multiply;
-    else if (character == '/')
+    }
+
+    if (character == '/')
+    {
         return MathOp::Divide;
+    }
 
     return std::nullopt;
 }
@@ -56,52 +85,74 @@ auto parseOperator(char const character) -> std::optional<MathOp>
 auto trim(std::string const& rawInput) -> std::string
 {
     std::string output = rawInput;
-    std::erase_if(output, isspace);
+    std::erase_if(
+        output, [](unsigned char character) { return std::isspace(character); }
+    );
     return output;
 }
+} // namespace
 
-std::string MathInterpreter::prettify(std::string const& rawInput)
+auto MathInterpreter::prettify(std::string const& rawInput) -> std::string
 {
     return trim(rawInput);
 }
 
-auto MathInterpreter::parse(std::string const& rawInput)
-    -> std::optional<MathStatement>
+struct MathStatementParser
 {
-    enum class ParseState
+    explicit MathStatementParser(std::string const& rawInput)
+        : trimmed(trim(rawInput))
     {
-        None,
-        NumberPreDecimal,
-        NumberPostDecimal,
-        Operator,
+    }
+
+    auto execute() -> std::optional<MathStatement>
+    {
+        IncrementResult incrementResult{IncrementResult::Continue};
+        while (incrementResult == IncrementResult::Continue)
+        {
+            incrementResult = increment();
+        }
+
+        if (incrementResult == IncrementResult::Error)
+        {
+            return std::nullopt;
+        }
+
+        return finish();
+    }
+
+private:
+    enum class IncrementResult : uint8_t
+    {
+        Continue,
+        Finished,
+        Error,
     };
 
-    struct OperatorPlusTerm
+    /**
+     * @brief increment - Increments the index into the math statement string,
+     * and transitions the state.
+     * @return Returns the result of the increment operation, including if an
+     * error occured or if parsing is finished.
+     */
+    auto increment() -> IncrementResult
     {
-        MathOp op;
-        double term;
-    };
+        if (operators.size() != terms.size()
+            && !(operators.empty() && terms.empty()))
+        {
+            return IncrementResult::Error;
+        }
 
-    std::string const trimmed = trim(rawInput);
+        if (index >= trimmed.size())
+        {
+            return IncrementResult::Finished;
+        }
 
-    std::vector<double> terms{};
-    std::vector<MathOp> operators;
-
-    ParseState state = ParseState::None;
-    size_t numberStartIndex = 0;
-    size_t index = 0;
-    while (index < trimmed.size())
-    {
-        assert(
-            operators.size() == terms.size()
-            || (operators.empty() && terms.empty())
-        );
-
-        char const currentChar = trimmed.at(index);
+        size_t const currentIndex = index++;
+        char const currentChar = trimmed.at(currentIndex);
         auto const typeResult = parseCharacter(currentChar);
         if (!typeResult.has_value())
         {
-            return std::nullopt;
+            return IncrementResult::Error;
         }
         StatementCharacterType const type = typeResult.value();
 
@@ -111,14 +162,14 @@ auto MathInterpreter::parse(std::string const& rawInput)
             switch (type)
             {
             case StatementCharacterType::MathOperator:
-                return std::nullopt;
+                return IncrementResult::Error;
             case StatementCharacterType::Digit:
                 state = ParseState::NumberPreDecimal;
-                numberStartIndex = index;
+                numberStartIndex = currentIndex;
                 break;
             case StatementCharacterType::Decimal:
                 state = ParseState::NumberPostDecimal;
-                numberStartIndex = index;
+                numberStartIndex = currentIndex;
                 break;
             }
             break;
@@ -126,9 +177,9 @@ auto MathInterpreter::parse(std::string const& rawInput)
             switch (type)
             {
             case StatementCharacterType::MathOperator:
-                terms.push_back(std::stod(
-                    trimmed.substr(numberStartIndex, index - numberStartIndex)
-                ));
+                terms.push_back(std::stod(trimmed.substr(
+                    numberStartIndex, currentIndex - numberStartIndex
+                )));
                 operators.push_back(parseOperator(currentChar).value());
                 state = ParseState::Operator;
                 break;
@@ -143,14 +194,14 @@ auto MathInterpreter::parse(std::string const& rawInput)
             switch (type)
             {
             case StatementCharacterType::MathOperator:
-                return std::nullopt;
+                return IncrementResult::Error;
             case StatementCharacterType::Digit:
                 state = ParseState::NumberPreDecimal;
-                numberStartIndex = index;
+                numberStartIndex = currentIndex;
                 break;
             case StatementCharacterType::Decimal:
                 state = ParseState::NumberPostDecimal;
-                numberStartIndex = index;
+                numberStartIndex = currentIndex;
                 break;
             }
             break;
@@ -158,57 +209,91 @@ auto MathInterpreter::parse(std::string const& rawInput)
             switch (type)
             {
             case StatementCharacterType::MathOperator:
-                terms.push_back(std::stod(
-                    trimmed.substr(numberStartIndex, index - numberStartIndex)
-                ));
+                terms.push_back(std::stod(trimmed.substr(
+                    numberStartIndex, currentIndex - numberStartIndex
+                )));
                 operators.push_back(parseOperator(currentChar).value());
                 state = ParseState::Operator;
                 break;
             case StatementCharacterType::Digit:
                 break;
             case StatementCharacterType::Decimal:
-                return std::nullopt;
+                return IncrementResult::Error;
             }
             break;
         }
 
-        index += 1;
+        return IncrementResult::Continue;
     }
 
-    if (state == ParseState::NumberPreDecimal
-        || state == ParseState::NumberPostDecimal)
+    /**
+     * @brief increment - Increments the index into the math statement string,
+     * and transitions the state.
+     * @return Returns whether or not the result is valid.
+     */
+    auto finish() -> std::optional<MathStatement>
     {
-        try
+        if (state == ParseState::NumberPreDecimal
+            || state == ParseState::NumberPostDecimal)
         {
-            terms.push_back(std::stod(
-                trimmed.substr(numberStartIndex, index - numberStartIndex)
-            ));
+            try
+            {
+                terms.push_back(std::stod(
+                    trimmed.substr(numberStartIndex, index - numberStartIndex)
+                ));
+            }
+            catch (std::invalid_argument const& e)
+            {
+                return std::nullopt;
+            }
+            catch (std::out_of_range const& e)
+            {
+                return std::nullopt;
+            }
         }
-        catch (std::invalid_argument const& e)
+
+        MathStatement statement{.terms = terms, .operators = operators};
+
+        if (!statement.isValid())
         {
             return std::nullopt;
         }
-        catch (std::out_of_range const& e)
-        {
-            return std::nullopt;
-        }
+
+        return statement;
     }
 
-    MathStatement const statement{.terms = terms, .operators = operators};
+    std::string const trimmed;
 
-    if (!statement.isValid())
+    std::vector<double> terms;
+    std::vector<MathOp> operators;
+
+    enum class ParseState : uint8_t
     {
-        return std::nullopt;
-    }
+        None,
+        NumberPreDecimal,
+        NumberPostDecimal,
+        Operator,
+    };
 
-    return statement;
+    ParseState state{ParseState::None};
+    size_t numberStartIndex{0};
+    size_t index{0};
+};
+
+auto MathInterpreter::parse(std::string const& rawInput)
+    -> std::optional<MathStatement>
+{
+    MathStatementParser parser{rawInput};
+    return parser.execute();
 }
 
 auto MathInterpreter::evaluate(MathStatement const& statement)
     -> std::optional<double>
 {
     if (!statement.isValid())
+    {
         return std::nullopt;
+    }
 
     std::deque<double> terms{statement.terms.begin(), statement.terms.end()};
     std::deque<MathOp> operators{
@@ -217,32 +302,32 @@ auto MathInterpreter::evaluate(MathStatement const& statement)
 
     // Reduce while evaluating operators for adjacent terms.
     // Multiplication and division first
-    size_t i = 0;
-    while (i < operators.size())
+    size_t index = 0;
+    while (index < operators.size())
     {
-        MathOp const mathOperator = operators[i];
+        MathOp const mathOperator = operators[index];
         if (mathOperator == MathOp::Plus || mathOperator == MathOp::Minus)
         {
-            i++;
+            index++;
             continue;
         }
         assert(
             mathOperator == MathOp::Multiply || mathOperator == MathOp::Divide
         );
 
-        double const firstTerm = terms[i];
-        double const secondTerm = terms[i + 1];
+        double const firstTerm = terms[index];
+        double const secondTerm = terms[index + 1];
 
-        terms.erase(terms.begin() + i);
-        operators.erase(operators.begin() + i);
+        terms.erase(terms.begin() + index);
+        operators.erase(operators.begin() + index);
 
         if (mathOperator == MathOp::Multiply)
         {
-            terms.at(i) = firstTerm * secondTerm;
+            terms.at(index) = firstTerm * secondTerm;
         }
         else
         {
-            terms.at(i) = firstTerm / secondTerm;
+            terms.at(index) = firstTerm / secondTerm;
         }
     }
 
@@ -257,7 +342,7 @@ auto MathInterpreter::evaluate(MathStatement const& statement)
 
         terms.pop_front();
         operators.pop_front();
-        i -= 1;
+        index -= 1;
 
         if (mathOperator == MathOp::Plus)
         {
@@ -278,19 +363,23 @@ auto MathInterpreter::interpret(std::string const& rawInput)
 {
     auto const parsed = parse(rawInput);
     if (!parsed.has_value())
+    {
         return std::unexpected(MathInterpretationError::ParseError);
+    }
 
-    MathStatement const statement = parsed.value();
+    MathStatement const& statement = parsed.value();
     auto const evaluated = evaluate(statement);
     if (!evaluated.has_value())
+    {
         return std::unexpected(MathInterpretationError::EvaluationError);
+    }
 
     auto const result = evaluated.value();
 
     return result;
 }
 
-bool operator==(MathStatement const& lhs, MathStatement const& rhs)
+auto operator==(MathStatement const& lhs, MathStatement const& rhs) -> bool
 {
     return lhs.terms == rhs.terms && lhs.operators == rhs.operators;
 }
