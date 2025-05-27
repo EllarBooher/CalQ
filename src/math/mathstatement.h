@@ -2,6 +2,7 @@
 
 #include "mathfunction.h"
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <expected>
 #include <memory>
@@ -60,13 +61,15 @@ public:
 
     void setFunction(UnaryFunction&& function);
 
+    auto backTerm() -> Term&;
+
     /**
      * @brief append - Append a new term prepended by an operator
      * @param mathOp - The binary operator that will come before the term.
      * PEMDAS order applies to the overall statement.
      */
-    [[nodiscard]] auto append(BinaryOp mathOp) -> Term&;
-    [[nodiscard]] auto appendStatement(BinaryOp mathOp) -> Statement&;
+    auto append(BinaryOp mathOp) -> Term&;
+    auto appendStatement(BinaryOp mathOp) -> Statement&;
 
 private:
     [[nodiscard]] auto stringTerm(size_t index) const -> std::string;

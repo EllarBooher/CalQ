@@ -244,6 +244,18 @@ void Statement::setFunction(UnaryFunction&& function)
     m_function = std::move(function);
 }
 
+auto Statement::backTerm() -> Term&
+{
+    if (empty())
+    {
+        m_terms.push_back(std::make_unique<Term>());
+    }
+
+    assert(m_terms.size() == m_operators.size() + 1);
+
+    return *m_terms.back();
+}
+
 auto Statement::append(BinaryOp mathOp) -> Term&
 {
     m_terms.push_back(std::make_unique<Term>(Scalar{"0.0"}));

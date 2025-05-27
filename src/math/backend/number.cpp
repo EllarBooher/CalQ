@@ -231,6 +231,7 @@ auto Scalar::operator+(Scalar const& rhs) const -> Scalar
     result.m_impl->value += rhs.m_impl->value;
     return result;
 }
+
 auto Scalar::operator-(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
@@ -238,6 +239,7 @@ auto Scalar::operator-(Scalar const& rhs) const -> Scalar
     result.m_impl->value -= rhs.m_impl->value;
     return result;
 }
+
 auto Scalar::operator*(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
@@ -250,6 +252,13 @@ auto Scalar::operator/(Scalar const& rhs) const -> Scalar
     Scalar result{};
     result.m_impl->value = this->m_impl->value;
     result.m_impl->value /= rhs.m_impl->value;
+    return result;
+}
+
+auto Scalar::operator-() const -> Scalar
+{
+    Scalar result{};
+    result.m_impl->value = -this->m_impl->value;
     return result;
 }
 

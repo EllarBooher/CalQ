@@ -1,5 +1,6 @@
 #include "lexer.h"
 #include "mathinterpreter.h"
+#include "parser.h"
 
 #include <QByteArray>
 #include <QObject>
@@ -102,26 +103,15 @@ auto QTest::toString(std::vector<calqmath::Token> const& tokens) -> char*
             [&](calqmath::TokenFunction const& name)
         {
             output += "f'";
-            output += name.value;
+            output += name.m_functionName;
         },
             [&](calqmath::TokenNumber const& name)
         {
             output += "n'";
-            output += name.value;
+            output += name.m_decimalRepresentation;
         },
-            [&](calqmath::TokenParanthesis const& paranthesis)
-        {
-            output += "p'";
-            switch (paranthesis)
-            {
-            case calqmath::TokenParanthesis::Open:
-                output += "(";
-                break;
-            case calqmath::TokenParanthesis::Close:
-                output += ")";
-                break;
-            }
-        },
+            [&](calqmath::TokenOpenBracket const&) { output += "("; },
+            [&](calqmath::TokenClosedBracket const&) { output += ")"; },
             [&](calqmath::TokenOperator const& mathOperator)
         {
             output += "o'";
@@ -529,7 +519,7 @@ void testLexerFunctionsAndNumbers()
         {"sin123", {TokenFunction{"sin123"}}},
         {"sin123sin", {TokenFunction{"sin123sin"}}},
         {"sin123.456", {TokenFunction{"sin123"}, TokenNumber{".456"}}},
-        {".sin", {TokenNumber{"."}, TokenFunction{"sin"}}},
+        {"0.0sin", {TokenNumber{"0.0"}, TokenFunction{"sin"}}},
     };
     for (auto const& [input, output] : cases)
     {
@@ -540,20 +530,146 @@ void testLexerFunctionsAndNumbers()
 
 void testLexerSingleCharacterTokens()
 {
+    using calqmath::TokenClosedBracket;
+    using calqmath::TokenOpenBracket;
     using calqmath::TokenOperator;
-    using calqmath::TokenParanthesis;
     auto const actual = calqmath::Lexer::convert("+-*/()");
     std::vector<calqmath::Token> const expected{
         TokenOperator::Plus,
         TokenOperator::Minus,
         TokenOperator::Multiply,
         TokenOperator::Divide,
-        TokenParanthesis::Open,
-        TokenParanthesis::Close,
+        TokenOpenBracket{},
+        TokenClosedBracket{},
     };
     QCOMPARE(actual, expected);
 }
+void testLexerMisc()
+{
+    // Valid token streams, but invalid when parsed to an expression
+    std::vector<std::string> const invalidTestCases{
+        "0..",
+        ".",
+        ".0.",
+        "..0",
+    };
 
+    for (auto const& input : invalidTestCases)
+    {
+        auto const tokens = calqmath::Lexer::convert(input);
+        QVERIFY(!tokens.has_value());
+    }
+}
+
+void testParserMisc(calqmath::FunctionDatabase const& functions)
+{
+    // Valid token streams, but invalid when parsed to an expression
+    std::vector<std::string> const invalidTestCases{
+        "+-*/",
+        "0+",
+        "+0",
+        "++",
+        "+",
+        "0-",
+        "--",
+        "-",
+        "0*",
+        "*0",
+        "**",
+        "*",
+        "0/",
+        "/0",
+        "//",
+        "/",
+        "",
+    };
+
+    for (auto const& input : invalidTestCases)
+    {
+        auto const tokens = calqmath::Lexer::convert(input);
+        QVERIFY(tokens.has_value());
+
+        auto const actual = calqmath::Parser::parse(functions, tokens.value());
+        QVERIFY(!actual.has_value());
+    }
+
+    std::vector<std::tuple<std::string, size_t>> const termCountCases{
+        {"1", 1}, {"123", 1}, {"1+2", 2}, {"123+456", 2}
+    };
+    for (auto const& [input, termCount] : termCountCases)
+    {
+        auto const tokens = calqmath::Lexer::convert(input);
+        QVERIFY(tokens.has_value());
+
+        auto const actual = calqmath::Parser::parse(functions, tokens.value());
+        QVERIFY(actual.has_value());
+        // Test both functions, although this would be redundant in actual code
+        QCOMPARE(actual.value().length(), termCount);
+        QVERIFY(actual.value().empty() == (termCount == 0));
+    }
+}
+
+void testParserParantheses(calqmath::FunctionDatabase const& functions)
+{
+    std::vector<std::string> const invalid{
+        "()",
+        "(())",
+        "((()))",
+
+        "(",
+        "(()",
+        "())",
+        ")",
+
+        "0(",
+        ")0",
+        "0)",
+        "0(",
+        "0()",
+
+        "0+(",
+        "(+)",
+        "(+0",
+        "(+",
+
+        "0.(",
+        "0.0 + 0.0(",
+
+        "(((((0.0) + 1.0) + 2.0) + 3.0) + 4.0) + 5.0)",
+    };
+    for (auto const& input : invalid)
+    {
+        auto const tokens = calqmath::Lexer::convert(input);
+        QVERIFY(tokens.has_value());
+
+        auto const actual = calqmath::Parser::parse(functions, tokens.value());
+        QVERIFY(!actual.has_value());
+    }
+
+    std::vector<std::string> const validTestCases{
+        "(1.1)",
+        "((1.1))",
+        "(((1.1)))",
+
+        "1.0 + (2.0)",
+        "(1.0) + 2.0",
+        "3.0 * (2.0)",
+        "(3.0) * (2.0)",
+
+        "0.0 + (1.0 + (2.0 + (3.0 + (4.0 + (5.0)))))",
+        "((((((0.0) + 1.0) + 2.0) + 3.0) + 4.0) + 5.0)",
+
+        "2.0 * (3.0 + 4.0)",
+    };
+    for (auto const& input : validTestCases)
+    {
+        auto const tokens = calqmath::Lexer::convert(input);
+        QVERIFY(tokens.has_value());
+
+        auto const actual = calqmath::Parser::parse(functions, tokens.value());
+        QVERIFY(actual.has_value());
+    }
+}
 } // namespace
 
 void TestMathInterpreter::test()
@@ -576,6 +692,11 @@ void TestMathInterpreter::test()
     testLexerNumbers();
     testLexerFunctionsAndNumbers();
     testLexerSingleCharacterTokens();
+    testLexerMisc();
+
+    calqmath::FunctionDatabase const functions{};
+    testParserParantheses(functions);
+    testParserMisc(functions);
 }
 
 QTEST_MAIN(TestMathInterpreter)

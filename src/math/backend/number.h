@@ -53,6 +53,8 @@ public:
     auto operator*(Scalar const& rhs) const -> Scalar;
     auto operator/(Scalar const& rhs) const -> Scalar;
 
+    auto operator-() const -> Scalar;
+
     friend Functions;
 
 private:

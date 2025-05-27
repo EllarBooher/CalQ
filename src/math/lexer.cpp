@@ -4,6 +4,32 @@
 #include <cstring>
 #include <deque>
 #include <ranges>
+#include <utility>
+
+namespace calqmath
+{
+auto operator==(TokenFunction const& lhs, TokenFunction const& rhs) -> bool
+{
+    return lhs.m_functionName == rhs.m_functionName;
+};
+auto operator==(TokenNumber const& lhs, TokenNumber const& rhs) -> bool
+{
+    return lhs.m_decimalRepresentation == rhs.m_decimalRepresentation;
+}
+
+auto operator==(
+    TokenOpenBracket const& /*lhs*/, TokenOpenBracket const& /*rhs*/
+) -> bool
+{
+    return true;
+}
+auto operator==(
+    TokenClosedBracket const& /*lhs*/, TokenClosedBracket const& /*rhs*/
+) -> bool
+{
+    return true;
+}
+} // namespace calqmath
 
 namespace
 {
@@ -21,6 +47,76 @@ auto trim(std::string const& rawInput) -> std::deque<char>
 
     return {trimmed.begin(), trimmed.end()};
 }
+
+auto popTokenOffFront(std::deque<char>& trimmed)
+    -> std::optional<calqmath::Token>
+{
+    static std::string constexpr digits{"0123456789"};
+    static char constexpr decimal{'.'};
+
+    auto const character = trimmed.front();
+    trimmed.pop_front();
+    std::optional<calqmath::Token> emitted;
+
+    if (character == '+')
+    {
+        emitted = calqmath::TokenOperator::Plus;
+    }
+    else if (character == '-')
+    {
+        emitted = calqmath::TokenOperator::Minus;
+    }
+    else if (character == '*')
+    {
+        emitted = calqmath::TokenOperator::Multiply;
+    }
+    else if (character == '/')
+    {
+        emitted = calqmath::TokenOperator::Divide;
+    }
+    else if (character == '(')
+    {
+        emitted = calqmath::TokenOpenBracket{};
+    }
+    else if (character == ')')
+    {
+        emitted = calqmath::TokenClosedBracket{};
+    }
+    else if (isAlpha(character))
+    {
+        std::string functionName{character};
+        while (!trimmed.empty()
+               && (isAlpha(trimmed.front()) || digits.contains(trimmed.front()))
+        )
+        {
+            functionName += trimmed.front();
+            trimmed.pop_front();
+        };
+        emitted = calqmath::TokenFunction{std::move(functionName)};
+    }
+    else if (digits.contains(character) || character == decimal)
+    {
+        std::string decimalRepresentation{character};
+        bool fractional{character == decimal};
+        while (!trimmed.empty()
+               && (digits.contains(trimmed.front())
+                   || (trimmed.front() == decimal && !fractional)))
+        {
+            decimalRepresentation += trimmed.front();
+            fractional |= trimmed.front() == decimal;
+            trimmed.pop_front();
+        };
+
+        if (decimalRepresentation == ".")
+        {
+            return std::nullopt;
+        }
+
+        emitted = calqmath::TokenNumber{std::move(decimalRepresentation)};
+    }
+
+    return emitted;
+}
 } // namespace
 
 auto calqmath::Lexer::convert(std::string const& rawInput)
@@ -30,65 +126,9 @@ auto calqmath::Lexer::convert(std::string const& rawInput)
 
     std::deque<char> trimmed{trim(rawInput)};
 
-    static std::string constexpr digits{"0123456789"};
-    static char constexpr decimal{'.'};
-
     while (!trimmed.empty())
     {
-        auto const character = trimmed.front();
-        trimmed.pop_front();
-        std::optional<calqmath::Token> emitted;
-
-        if (character == '+')
-        {
-            emitted = TokenOperator::Plus;
-        }
-        else if (character == '-')
-        {
-            emitted = TokenOperator::Minus;
-        }
-        else if (character == '*')
-        {
-            emitted = TokenOperator::Multiply;
-        }
-        else if (character == '/')
-        {
-            emitted = TokenOperator::Divide;
-        }
-        else if (character == '(')
-        {
-            emitted = TokenParanthesis::Open;
-        }
-        else if (character == ')')
-        {
-            emitted = TokenParanthesis::Close;
-        }
-        else if (isAlpha(character))
-        {
-            TokenFunction name{.value = {character}};
-            while (!trimmed.empty()
-                   && (isAlpha(trimmed.front())
-                       || digits.contains(trimmed.front())))
-            {
-                name.value += trimmed.front();
-                trimmed.pop_front();
-            };
-            emitted = name;
-        }
-        else if (digits.contains(character) || character == decimal)
-        {
-            TokenNumber number{.value = {character}};
-            bool fractional{character == decimal};
-            while (!trimmed.empty()
-                   && (digits.contains(trimmed.front())
-                       || (trimmed.front() == decimal && !fractional)))
-            {
-                number.value += trimmed.front();
-                fractional |= trimmed.front() == decimal;
-                trimmed.pop_front();
-            };
-            emitted = number;
-        }
+        auto const emitted = popTokenOffFront(trimmed);
 
         if (!emitted.has_value())
         {
