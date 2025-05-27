@@ -34,6 +34,13 @@ auto decompose(Scalar const& number) -> ScalarStringDecomposition
 
     ScalarStringDecomposition decomposition{};
 
+    if (mantissa.empty())
+    {
+        assert(exponent == 0);
+        decomposition.preDecimal = "0";
+        return decomposition;
+    }
+
     // Scientific notation, easiest case, looks like M.ANTISSAeEXPONENT
     if (exponent <= READABLE_MIN || exponent >= READABLE_MAX)
     {

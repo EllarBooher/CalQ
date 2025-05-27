@@ -277,6 +277,9 @@ void testScalarStringify()
 
         {Scalar{0.1234567890123}, "0.123_456_789"},
         {Scalar{1234567891234.5}, "1.234_567_891e12"},
+
+        {Scalar{0}, "0"},
+        {Scalar{0.0}, "0"},
     };
 
     for (auto const& [input, output] : testCases)
