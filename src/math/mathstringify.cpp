@@ -1,9 +1,19 @@
 #include "mathstringify.h"
 
 #include <cassert>
+#include <cstdint>
 #include <format>
 
-auto calqmath::toString(Scalar const& number) -> std::string
+struct ScalarStringDecomposition
+{
+    std::string preDecimal;
+    std::string postDecimal;
+    std::optional<int64_t> exponent;
+};
+
+namespace
+{
+auto decompose(Scalar const& number) -> ScalarStringDecomposition
 {
     size_t constexpr PRECISION_DIGITS = 10;
     size_t constexpr BASE = 10;
@@ -22,10 +32,7 @@ auto calqmath::toString(Scalar const& number) -> std::string
     ptrdiff_t constexpr READABLE_MIN = -2;
     ptrdiff_t constexpr READABLE_MAX = 8;
 
-    char constexpr DIGIT_SEPARATOR = '_';
-
-    std::string preDecimal{};
-    std::string postDecimal{};
+    ScalarStringDecomposition decomposition{};
 
     // Scientific notation, easiest case, looks like M.ANTISSAeEXPONENT
     if (exponent <= READABLE_MIN || exponent >= READABLE_MAX)
@@ -34,55 +41,80 @@ auto calqmath::toString(Scalar const& number) -> std::string
         {
             mantissa += '0';
         }
-        preDecimal = mantissa.substr(0, 1);
-        postDecimal = mantissa.substr(1);
 
-        for (size_t i = 3; i < postDecimal.size(); i += 4)
-        {
-            postDecimal.insert(i, 1, DIGIT_SEPARATOR);
-        }
-
-        return std::format("{}.{}e{}", preDecimal, postDecimal, exponent - 1);
+        decomposition.preDecimal = mantissa.substr(0, 1);
+        decomposition.postDecimal = mantissa.substr(1);
+        decomposition.exponent = exponent - 1;
     }
-
-    if (exponent <= 0)
+    else if (exponent <= 0)
     {
-        // Numbers like 0.000MANTISSA
-        postDecimal = std::string(std::abs(exponent), '0') + mantissa;
+        // Numbers like 0.0000MANTISSA
+        decomposition.postDecimal =
+            std::string(std::abs(exponent), '0') + mantissa;
     }
     else if (static_cast<size_t>(exponent) >= mantissa.size())
     {
         // Numbers like MANTISSA0000
-        preDecimal =
+        decomposition.preDecimal =
             mantissa
             + std::string(static_cast<size_t>(exponent) - mantissa.size(), '0');
     }
     else
     {
         // Numbers like MANT.ISSA
-        preDecimal = mantissa.substr(0, exponent);
-        postDecimal = mantissa.substr(exponent);
+        decomposition.preDecimal = mantissa.substr(0, exponent);
+        decomposition.postDecimal = mantissa.substr(exponent);
     }
 
-    for (ptrdiff_t i = preDecimal.size() - 3; i >= 1; i -= 3)
+    return decomposition;
+}
+auto format(ScalarStringDecomposition decomposition) -> std::string
+{
+    auto constexpr DIGIT_SEPARATOR = '_';
+
+    for (ptrdiff_t i = decomposition.preDecimal.size() - 3; i >= 1; i -= 3)
     {
-        preDecimal.insert(static_cast<size_t>(i), 1, DIGIT_SEPARATOR);
+        decomposition.preDecimal.insert(
+            static_cast<size_t>(i), 1, DIGIT_SEPARATOR
+        );
     }
-    for (size_t i = 3; i < postDecimal.size(); i += 4)
+    for (size_t i = 3; i < decomposition.postDecimal.size(); i += 4)
     {
-        postDecimal.insert(i, 1, DIGIT_SEPARATOR);
+        decomposition.postDecimal.insert(i, 1, DIGIT_SEPARATOR);
     }
 
-    assert(!preDecimal.empty() || !postDecimal.empty());
-    if (postDecimal.empty())
+    if (decomposition.exponent.has_value())
     {
-        return preDecimal;
+        return std::format(
+            "{}.{}e{}",
+            decomposition.preDecimal,
+            decomposition.postDecimal,
+            decomposition.exponent.value()
+        );
     }
 
-    if (preDecimal.empty())
+    assert(
+        !decomposition.preDecimal.empty() || !decomposition.postDecimal.empty()
+    );
+
+    if (decomposition.preDecimal.empty())
     {
-        return std::format("0.{}", postDecimal);
+        return std::format("0.{}", decomposition.postDecimal);
     }
 
-    return std::format("{}.{}", preDecimal, postDecimal);
+    if (decomposition.postDecimal.empty())
+    {
+        return decomposition.preDecimal;
+    }
+
+    return std::format(
+        "{}.{}", decomposition.preDecimal, decomposition.postDecimal
+    );
+}
+} // namespace
+
+auto calqmath::toString(Scalar const& number) -> std::string
+{
+    auto decomposition = decompose(number);
+    return format(decomposition);
 }
