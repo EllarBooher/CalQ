@@ -1,5 +1,4 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#pragma once
 
 #include <QMainWindow>
 #include <QStringList>
@@ -31,4 +30,3 @@ private:
     std::unique_ptr<QStringList> m_messages;
     std::unique_ptr<QStringListModel> m_messagesModel;
 };
-#endif // MAINWINDOW_H

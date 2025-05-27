@@ -1,5 +1,4 @@
-#ifndef MATHINTERPRETER_H
-#define MATHINTERPRETER_H
+#pragma once
 
 #include <algorithm>
 #include <cstdint>
@@ -126,5 +125,3 @@ public:
     static auto interpret(std::string const& rawInput)
         -> std::expected<double, MathInterpretationError>;
 };
-
-#endif // MATHINTERPRETER_H
