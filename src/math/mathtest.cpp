@@ -187,110 +187,6 @@ auto QTest::toString(std::optional<calqmath::Statement> const& statement)
 
 namespace
 {
-void testParse(calqmath::Interpreter const& interpreter)
-{
-    std::vector<std::string> const invalidTestCases{
-        "0..0+0", "0..+0", "0+0..0", "0+0..", ".",  "..", "+-*/", "0+",
-        "+0",     "++",    "+",      "0-",    "-0", "--", "-",    "0*",
-        "*0",     "**",    "*",      "0/",    "/0", "//", "/",
-    };
-
-    for (auto const& input : invalidTestCases)
-    {
-        QCOMPARE(interpreter.parse(input), std::nullopt);
-    }
-
-    std::vector<std::tuple<std::string, size_t>> const termCountCases{
-        {"", 0}, {"1", 1}, {"123", 1}, {"1+2", 2}, {"123+456", 2}
-    };
-    for (auto const& [input, termCount] : termCountCases)
-    {
-        auto const statementResult{interpreter.parse(input)};
-        QVERIFY(statementResult.has_value());
-
-        auto const& statement{statementResult.value()};
-        QCOMPARE(statement.length(), termCount);
-        QVERIFY(statement.empty() == (termCount == 0));
-    }
-}
-
-void testParentheses(calqmath::Interpreter const& interpreter)
-{
-    std::vector<std::string> const invalidTestCases{
-        "()",
-        "(())",
-        "((()))",
-
-        "(",
-        "(()",
-        "())",
-        ")",
-
-        "0(",
-        ")0",
-        "0)",
-        "0(",
-        "0()",
-
-        "0+(",
-        "(+)",
-        "(+0",
-        "(+",
-
-        "0.(",
-        "0.0 + 0.0(",
-
-        "(((((0.0) + 1.0) + 2.0) + 3.0) + 4.0) + 5.0)",
-    };
-
-    for (auto const& input : invalidTestCases)
-    {
-        QCOMPARE(interpreter.parse(input), std::nullopt);
-    }
-
-    std::vector<std::tuple<std::string, std::string>> const interpretTestCases{
-        {"(1.1)", "1.1"},
-        {"((1.1))", "1.1"},
-        {"(((1.1)))", "1.1"},
-
-        {"1.0 + (2.0)", "3.0"},
-        {"(1.0) + 2.0", "3.0"},
-        {"3.0 * (2.0)", "6.0"},
-        {"(3.0) * (2.0)", "6.0"},
-
-        {"0.0 + (1.0 + (2.0 + (3.0 + (4.0 + (5.0)))))", "15.0"},
-        {"((((((0.0) + 1.0) + 2.0) + 3.0) + 4.0) + 5.0)", "15.0"},
-
-        {"2.0 * (3.0 + 4.0)", "14.0"},
-    };
-    for (auto const& [input, outputRepr] : interpretTestCases)
-    {
-        auto const statementResult{interpreter.parse(input)};
-        QVERIFY(statementResult.has_value());
-        auto const interpretResult{interpreter.interpret(input)};
-        calqmath::Scalar const output{outputRepr};
-        QCOMPARE(interpretResult, output);
-    }
-}
-
-void testWhitespace(calqmath::Interpreter const& interpreter)
-{
-    std::vector<std::string> const whitespaceParseCases{
-        " 0 - 1 + 2 / 3 * 4 ",
-        "   0   -  1  +  2  /  3  *  4  ",
-        "0-1  +2/3  *4",
-        "0  -1+2  /3*4",
-        "  0-1  +2/3*4",
-        "0  -1+2/3*4  ",
-        "\n0\n-\n1\n+\n2\n/\n3\n*\n4\n",
-    };
-    auto const exemplar{interpreter.parse("0-1+2/3*4")};
-    for (auto const& input : whitespaceParseCases)
-    {
-        QCOMPARE(interpreter.parse(input), exemplar);
-    }
-}
-
 void testInterpret(calqmath::Interpreter const& interpreter)
 {
     std::vector<std::tuple<std::string, calqmath::Scalar>> const
@@ -345,14 +241,6 @@ void testOrderOfOperators(calqmath::Interpreter const& interpreter)
 
 void testFunctionParsing(calqmath::Interpreter const& interpreter)
 {
-    std::vector<std::string> const invalidTestCases{
-        "id()", "id(id())", "0.0 + id()", "id() + 0.0"
-    };
-    for (auto const& input : invalidTestCases)
-    {
-        QVERIFY(!interpreter.parse(input).has_value());
-    }
-
     std::vector<std::tuple<std::string, calqmath::Scalar>> const testCases{
         {"id(1)", calqmath::Scalar{"1.0"}},
         {"id(id(2))", calqmath::Scalar{"2.0"}},
@@ -376,13 +264,13 @@ void testFunctionParsing(calqmath::Interpreter const& interpreter)
             {"id", {"2.0"}},    {"abs", {"2.0"}},   {"ceil", {"4.5"}},
             {"floor", {"4.5"}}, {"round", {"4.5"}}, {"roundeven", {"4.5"}},
             {"trunc", {"4.5"}}, {"sqrt", {"2.0"}},  {"cbrt", {"2.0"}},
-            {"exp", {"2.0"}},   {"log", {"2.0"}},   {"erf", {"2.0"}},
-            {"erfc", {"2.0"}},  {"gamma", {"2.0"}}, {"sin", {"2.0"}},
-            {"csc", {"2.0"}},   {"asin", {"0.5"}},  {"cos", {"2.0"}},
-            {"sec", {"2.0"}},   {"acos", {"0.5"}},  {"tan", {"2.0"}},
-            {"cot", {"2.0"}},   {"atan", {"2.0"}},  {"sinh", {"2.0"}},
-            {"cosh", {"2.0"}},  {"tanh", {"2.0"}},  {"asinh", {"2.0"}},
-            {"acosh", {"2.0"}}, {"atanh", {"0.5"}},
+            {"exp", {"2.0"}},   {"log", {"2.0"}},   {"log2", {"3.0"}},
+            {"erf", {"2.0"}},   {"erfc", {"2.0"}},  {"gamma", {"2.0"}},
+            {"sin", {"2.0"}},   {"csc", {"2.0"}},   {"asin", {"0.5"}},
+            {"cos", {"2.0"}},   {"sec", {"2.0"}},   {"acos", {"0.5"}},
+            {"tan", {"2.0"}},   {"cot", {"2.0"}},   {"atan", {"2.0"}},
+            {"sinh", {"2.0"}},  {"cosh", {"2.0"}},  {"tanh", {"2.0"}},
+            {"asinh", {"2.0"}}, {"acosh", {"2.0"}}, {"atanh", {"0.5"}},
         };
 
     for (auto const& name : interpreter.functions().unaryNames())
@@ -561,6 +449,31 @@ void testLexerMisc()
     }
 }
 
+void testParserFunctions(calqmath::FunctionDatabase const& functions)
+{
+    std::vector<std::string> const invalidTestCases{
+        "id()",
+        "id(id())",
+        "0.0 + id()",
+        "id() + 0.0",
+        "id(",
+        "5.0 + id(",
+        "id())",
+        "id(5.0",
+        "5.0 + id(5.0"
+    };
+
+    for (auto const& input : invalidTestCases)
+    {
+        auto const tokens = calqmath::Lexer::convert(input);
+        QVERIFY(tokens.has_value());
+
+        auto const statement =
+            calqmath::Parser::parse(functions, tokens.value());
+        QVERIFY(!statement.has_value());
+    }
+}
+
 void testParserMisc(calqmath::FunctionDatabase const& functions)
 {
     // Valid token streams, but invalid when parsed to an expression
@@ -680,13 +593,7 @@ void TestMathInterpreter::test()
     // able to stringify properly.
     testScalarStringify();
 
-    testParse(interpreter);
-    testWhitespace(interpreter);
-    testParentheses(interpreter);
-    testInterpret(interpreter);
-    testOrderOfOperators(interpreter);
-    testFunctionParsing(interpreter);
-    testMinimalPrecision(interpreter);
+    // Test components in order of dependency
 
     testLexerWhitespace();
     testLexerNumbers();
@@ -697,6 +604,12 @@ void TestMathInterpreter::test()
     calqmath::FunctionDatabase const functions{};
     testParserParantheses(functions);
     testParserMisc(functions);
+    testParserFunctions(functions);
+
+    testInterpret(interpreter);
+    testOrderOfOperators(interpreter);
+    testFunctionParsing(interpreter);
+    testMinimalPrecision(interpreter);
 }
 
 QTEST_MAIN(TestMathInterpreter)

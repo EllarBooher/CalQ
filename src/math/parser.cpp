@@ -134,7 +134,7 @@ auto calqmath::Parser::parse(
             std::move(functionLookup).value()
         );
         depthStack.push(&std::get<Statement>(backTerm));
-        expectNewTerm = false;
+        expectNewTerm = true;
         return SUCCESS;
     },
         [&](TokenOpenBracket const&)
@@ -163,7 +163,7 @@ auto calqmath::Parser::parse(
         }
     }
 
-    if (expectNewTerm)
+    if (expectNewTerm || depthStack.size() > 1)
     {
         return std::nullopt;
     }

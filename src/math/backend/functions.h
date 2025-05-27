@@ -38,6 +38,8 @@ public:
     static auto pow(Scalar const& base, Scalar const& exponent) -> Scalar;
     // Natural logarithm, which is the logarithm with base Euler's constant.
     static auto log(Scalar const& argument) -> Scalar;
+    // Logarithm base-2.
+    static auto log2(Scalar const& argument) -> Scalar;
     // Logarithm of arbitrary base.
     static auto logn(Scalar const& base, Scalar const& argument) -> Scalar;
     // Error function.

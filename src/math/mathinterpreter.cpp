@@ -1,11 +1,11 @@
 #include "mathinterpreter.h"
 
 #include "backend/number.h"
-#include "mathstatementparser.h"
+#include "lexer.h"
+#include "parser.h"
 #include <cassert>
 #include <cctype>
 #include <expected>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -37,24 +37,22 @@ auto Interpreter::prettify(std::string const& rawInput) -> std::string
     return trim(rawInput);
 }
 
-auto Interpreter::parse(std::string const& rawInput) const
-    -> std::optional<Statement>
-{
-    StatementParser parser{rawInput};
-    return parser.execute(m_functions);
-}
-
 auto Interpreter::interpret(std::string const& rawInput) const
     -> std::expected<Scalar, InterpretError>
 {
-    auto const parsed = parse(rawInput);
-    if (!parsed.has_value())
+    auto const tokens = Lexer::convert(rawInput);
+    if (!tokens.has_value())
+    {
+        return std::unexpected(InterpretError::LexError);
+    }
+
+    auto const statement = Parser::parse(m_functions, tokens.value());
+    if (!statement.has_value())
     {
         return std::unexpected(InterpretError::ParseError);
     }
 
-    Statement const& statement = parsed.value();
-    auto const evaluated = statement.evaluate();
+    auto const evaluated = statement.value().evaluate();
     if (!evaluated.has_value())
     {
         return std::unexpected(InterpretError::EvaluationError);

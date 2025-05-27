@@ -37,7 +37,6 @@ qt_add_library(CalQMath
   src/math/mathinterpreter.h     src/math/mathinterpreter.cpp
   src/math/mathfunction.h        src/math/mathfunction.cpp
   src/math/mathstatement.h       src/math/mathstatement.cpp
-  src/math/mathstatementparser.h src/math/mathstatementparser.cpp
   src/math/backend/number.h      src/math/backend/number.cpp
   src/math/backend/numberimpl.h
   src/math/backend/functions.h   src/math/backend/functions.cpp

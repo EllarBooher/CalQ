@@ -48,6 +48,7 @@ WRAP_UNARY_SCALAR(cbrt, argument);
 WRAP_UNARY_SCALAR(exp, exponent);
 
 WRAP_UNARY_SCALAR(log, argument);
+WRAP_UNARY_SCALAR(log2, argument);
 
 auto Functions::logn(Scalar const& base, Scalar const& argument) -> Scalar
 {

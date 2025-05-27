@@ -1,16 +1,15 @@
 #pragma once
 
 #include "mathfunction.h"
-#include "mathstatement.h"
 #include <cstdint>
 #include <expected>
-#include <optional>
 #include <string>
 
 namespace calqmath
 {
 enum class InterpretError : uint8_t
 {
+    LexError,
     ParseError,
     EvaluationError,
 };
@@ -47,9 +46,6 @@ public:
      * @return Returns the string, with whitespace removed.
      */
     static auto prettify(std::string const& rawInput) -> std::string;
-
-    [[nodiscard]] auto parse(std::string const& rawInput) const
-        -> std::optional<Statement>;
 
     /**
      * @brief interpret - Parses user input as a mathematical statement and
