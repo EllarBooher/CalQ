@@ -69,7 +69,10 @@ if(-not $(Test-Path $OutDir)) {
         New-Item $OutDir -Type "Directory" | Out-Null
     }
 }
-$OutDir = Resolve-Path $OutDir
+
+if(-not $DryRun) {
+    $OutDir = Resolve-Path $OutDir
+}
 
 if(-not $(Test-Path $SrcDir)) {
     "Could not find source directory at '$SrcDir' - Folder does not exist. Now exiting."
