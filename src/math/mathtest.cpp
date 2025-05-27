@@ -296,6 +296,16 @@ void testScalarStringify()
     }
 }
 
+void testMinimalPrecision(MathInterpreter const& interpreter)
+{
+    for (size_t i = 0; i < calqmath::getBignumBackendPrecision(); i++)
+    {
+        std::string const input{std::format("1{0}+1-1{0}", std::string(i, '0'))
+        };
+        QCOMPARE(interpreter.interpret(input), Scalar{"1"});
+    }
+}
+
 } // namespace
 
 void TestMathInterpreter::test()
@@ -308,6 +318,7 @@ void TestMathInterpreter::test()
     testInterpret(interpreter);
     testOrderOfOperators(interpreter);
     testFunctionParsing(interpreter);
+    testMinimalPrecision(interpreter);
 
     testScalarStringify();
 }

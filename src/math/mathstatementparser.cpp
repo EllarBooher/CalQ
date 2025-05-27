@@ -422,13 +422,9 @@ auto MathStatementParser::increment(MathFunctionDatabase const& functions)
         case StatementCharacterType::MathOperator:
         case StatementCharacterType::CloseParenthesis:
         {
-            Scalar const number{
-                m_trimmed.substr(
-                    state.numberStartIndex,
-                    currentIndex - state.numberStartIndex
-                ),
-                10
-            };
+            Scalar const number{m_trimmed.substr(
+                state.numberStartIndex, currentIndex - state.numberStartIndex
+            )};
 
             auto& topLevelStatement = *m_statementDepthStack.top();
             if (!topLevelStatement.empty() && state.mathOp == std::nullopt)
@@ -495,12 +491,9 @@ auto MathStatementParser::finish() -> std::optional<MathStatement>
     {
         try
         {
-            Scalar const number{
-                m_trimmed.substr(
-                    state.numberStartIndex, m_index - state.numberStartIndex
-                ),
-                10
-            };
+            Scalar const number{m_trimmed.substr(
+                state.numberStartIndex, m_index - state.numberStartIndex
+            )};
 
             auto& topLevelStatement = *m_statementDepthStack.top();
             if (!topLevelStatement.empty() && state.mathOp == std::nullopt)

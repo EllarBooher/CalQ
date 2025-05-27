@@ -11,7 +11,7 @@
 
 namespace
 {
-// TODO: rewrite this an support locales
+// TODO: rewrite this and support locales
 
 auto trim(std::string const& rawInput) -> std::string
 {
@@ -23,7 +23,12 @@ auto trim(std::string const& rawInput) -> std::string
 }
 } // namespace
 
-MathInterpreter::MathInterpreter() = default;
+MathInterpreter::MathInterpreter()
+{
+    // TODO: hoist this somewhere more reasonable, for now interpreter acts as
+    // the library frontend.
+    calqmath::initBignumBackend();
+}
 
 auto MathInterpreter::prettify(std::string const& rawInput) -> std::string
 {
