@@ -19,7 +19,7 @@ param (
     $SrcDir = ".",
     [Parameter(Mandatory)]
     [string]
-    # Root directory of Qt installation, folder is named 'Qt' in default Windows installation.
+    # Root directory of Qt installation, with version number.
     $QtDir,
     [Parameter(Mandatory)]
     [string]
@@ -60,6 +60,16 @@ $preset = if($TargetPlatform -eq "MinGW") { "x64-windows-mingw" } else { "x64-wi
 if($OutDir -eq "") {
     $OutDir = Join-Path "./build/" $preset
 }
+if(-not $(Test-Path $OutDir)) {
+    "Output directory does not exist, creating '$OutDir'."
+    if($DryRun) {
+        ">>> New-Item $OutDir -Type `"Directory`""
+        "[[[ -DryRun skipped ]]]"
+    } else {
+        New-Item $OutDir -Type "Directory" | Out-Null
+    }
+}
+$OutDir = Resolve-Path $OutDir
 
 if(-not $(Test-Path $SrcDir)) {
     "Could not find source directory at '$SrcDir' - Folder does not exist. Now exiting."
@@ -71,10 +81,12 @@ if(-not $(Test-Path $QtDir)) {
     "Could not find Qt installed at '$QtDir' - Folder does not exist. Now exiting."
     Exit
 }
+$QtDir = Resolve-Path $QtDir
 
 if($TargetPlatform -eq "MinGW") {
     $QtDir = Join-Path $QtDir "mingw_64"
 } else {
+# We could search for a specific version based on the Qt version, but this is simpler
     "Searching for Qt MSVC install dir, with regex pattern 'msvc.*_64'"
     $QtVersions = (Get-ChildItem $QtDir) -match "msvc.*_64" | Sort-Object -Descending
     "Found $($QtVersions.Length), sorted in descending order:"
@@ -83,19 +95,13 @@ if($TargetPlatform -eq "MinGW") {
     $QtDir = Join-Path $QtDir $QtVersions[0]
 }
 
-$Path = "$QtDir;$PSHome"
-
-# Separate if statement from the previous, so that the directory exists after being deleted.
-if(-not (Test-Path $OutDir))
-{
-    if($DryRun) {
-        "[-DryRun] New-Item $OutDir -ItemType `"Directory`" | Out-Null"
-    } else {
-        New-Item $OutDir -ItemType "Directory" | Out-Null
-    }
+if(-not $(Test-Path $QtDir)) {
+    "Could not find Qt for selected platform at '$QtDir' - Folder does not exist. Now exiting."
+    Exit
 }
 
-$OutDir = Resolve-Path $OutDir
+$Path = "$PathPrefix;$QtDir;$PSHome"
+
 $CMake = Resolve-Path $CMake
 $InstallDir = Join-Path $OutDir -ChildPath "deploy" | Join-Path -ChildPath $BuildConfig;
 
@@ -107,30 +113,35 @@ Using:
     Build Config       : $BuildConfig
     Qt                 : $QtDir
     Qt CMake           : $CMake
-    env:PATH           : $PathPrefix;$Path;$env:PATH
+    env:PATH           : $Path;$env:PATH
 "@
 
 $OldEnvPath = $env:PATH
-$env:PATH = "$PathPrefix;$Path;$env:PATH"
+$env:PATH = "$Path;$env:PATH"
 
 try{
 ""
 "*************** CLEAN ***************"
 ""
-if($ForceClean -and -not (Get-ChildItem $OutDir).Length -eq 0)
-{
+# We check for the count of children, and not existence of the directory, since we (potentially) created it earlier.
+if($ForceClean -and -not (Get-ChildItem $OutDir).Length -eq 0) {
     "Output directory '$OutDir' already exists, -ForceClean enabled so deleting its contents."
     if($DryRun) {
-        "[-DryRun] Get-ChildItem $OutDir | Remove-Item -Recurse -Force"
+        ">>> Remove-Item $OutDir -Recurse"
+        ">>> New-Item $OutDir -Type `"Directory`""
+        "[[[ -DryRun skipped ]]]"
     } else {
-        Get-ChildItem $OutDir | Remove-Item -Recurse -Force
+        # Split this into two commands, so the user gets just a single prompt for removing the existing directory
+        Remove-Item $OutDir -Recurse
+        New-Item $OutDir -Type "Directory"
     }
 } else {
     ">>> & $CMake ``
         --build $OutDir ``
         --target clean"
     if($DryRun) {
-        "   -DryRun skipped"
+        "[[[ -DryRun skipped ]]]"
+        ""
     } else {
         & $CMake --build $OutDir --target clean | MyLog
     }
@@ -141,11 +152,11 @@ if($ForceClean -and -not (Get-ChildItem $OutDir).Length -eq 0)
 ""
 
 ">>> & $CMake ``
-    -S $SrcDir ``
-    -B $OutDir ``
-    --preset $preset"
+        -S $SrcDir ``
+        -B $OutDir ``
+        --preset $preset"
 if($DryRun) {
-    "   -DryRun skipped"
+    "[[[ -DryRun skipped ]]]"
 } else {
     & $CMake -S $SrcDir -B $OutDir --preset $preset | MyLog
 }
@@ -154,9 +165,10 @@ if($LASTEXITCODE -ne 0)
     ""
     "Configuring failed, deleting build directory and now exiting."
     if($DryRun) {
-        "[-DryRun] Get-ChildItem $OutDir | Remove-Item -Recurse -Force"
+        ">>> Remove-Item $OutDir -Recurse"
+        "[[[ -DryRun skipped ]]]"
     } else {
-        Get-ChildItem $OutDir | Remove-Item -Recurse -Force
+        Remove-Item $OutDir -Recurse
     }
     exit
 }
@@ -169,7 +181,7 @@ if($LASTEXITCODE -ne 0)
     --build $OutDir ``
     --config $BuildConfig"
 if($DryRun) {
-    "   -DryRun skipped"
+    "[[[ -DryRun skipped ]]]"
 } else {
     & $CMake --build $OutDir --config $BuildConfig | MyLog
     if($LASTEXITCODE -ne 0)
@@ -187,13 +199,17 @@ if($DryRun) {
 if(Test-Path $InstallDir) {
     "Install directory already exists, deleting."
     if($DryRun) {
-        "[-DryRun] Remove-Item $InstallDir -Recurse -Force"
+        ">>> Remove-Item $InstallDir -Recurse"
+        "[[[ -DryRun skipped ]]]"
+        ""
     } else {
-        Remove-Item $InstallDir -Recurse -Force
+        Remove-Item $InstallDir -Recurse
     }
 }
 if($DryRun) {
-    "[-DryRun] New-Item $InstallDir -ItemType `"Directory`" | Out-Null"
+    "New-Item $InstallDir -ItemType `"Directory`" | Out-Null"
+    "[[[ -DryRun skipped ]]]"
+    ""
 } else {
     New-Item $InstallDir -ItemType "Directory" | Out-Null
 }
@@ -203,7 +219,7 @@ if($DryRun) {
     --prefix $InstallDir `
     --config $BuildConfig | MyLog"
 if($DryRun) {
-    "   -DryRun skipped"
+    "[[[ -DryRun skipped ]]]"
 } else {
     & $CMake `
         --install $OutDir `
