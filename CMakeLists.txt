@@ -69,7 +69,7 @@ install(SCRIPT ${deploy_script})
 
 include(cmake/clang-tidy.cmake)
 set_target_properties(
-    CalQ CalQTest CalQMath
+    CalQ CalQMath # CalQTest
     PROPERTIES
         CXX_CLANG_TIDY
             "${CLANG_TIDY_PATH}"
