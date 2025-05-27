@@ -4,7 +4,9 @@
 #include <QObject>
 #include <QString>
 #include <QTest>
+#include <QtLogging>
 
+#include "mathstringify.h"
 #include <expected>
 #include <optional>
 #include <string>
@@ -29,34 +31,7 @@ template <> auto QTest::toString(MathStatement const& statement) -> char*
 
 template <> auto QTest::toString(Scalar const& number) -> char*
 {
-    ptrdiff_t constexpr PRECISION_DIGITS = 10;
-
-    QString output{};
-    mp_exp_t exponent;
-    // Extract base-10 mantissa
-    output += number.get_str(exponent).substr(0, PRECISION_DIGITS);
-    // TODO: implement floating decimal point
-
-    if (exponent >= PRECISION_DIGITS)
-    {
-        output.insert(1, '.');
-        output += "e";
-        output += QString::number(exponent);
-    }
-    else if (exponent < 0)
-    {
-        output.insert(1, '.');
-        output += "e-";
-        output += QString::number(exponent);
-    }
-    else if (exponent == 0)
-    {
-        output.prepend("0.");
-    }
-    else
-    {
-        output.insert(exponent, '.');
-    }
+    QString const output = QString::fromStdString(calqmath::toString(number));
 
     QByteArray const bytes = output.toUtf8();
 
@@ -281,6 +256,35 @@ void testFunctionParsing(MathInterpreter const& interpreter)
     }
 }
 
+void testScalarStringify()
+{
+    std::vector<std::tuple<Scalar, std::string>> const testCases{
+        {Scalar{0.00123}, "1.23e-3"},
+        {Scalar{0.0123}, "0.012_3"},
+        {Scalar{0.123}, "0.123"},
+        {Scalar{1.23}, "1.23"},
+        {Scalar{12.3}, "12.3"},
+        {Scalar{123.0}, "123"},
+        {Scalar{1230.0}, "1_230"},
+        {Scalar{12300.0}, "12_300"},
+        {Scalar{123000.0}, "123_000"},
+        {Scalar{1230000.0}, "1_230_000"},
+        {Scalar{12300000.0}, "1.23e7"},
+        {Scalar{123000000.0}, "1.23e8"},
+        {Scalar{1230000000.0}, "1.23e9"},
+        {Scalar{12300000000.0}, "1.23e10"},
+        {Scalar{123000000000.0}, "1.23e11"},
+
+        {Scalar{0.1234567890123}, "0.123_456_789"},
+        {Scalar{1234567891234.5}, "1.234_567_891e12"},
+    };
+
+    for (auto const& [input, output] : testCases)
+    {
+        QCOMPARE(calqmath::toString(input), output);
+    }
+}
+
 } // namespace
 
 void TestMathInterpreter::test()
@@ -293,6 +297,8 @@ void TestMathInterpreter::test()
     testInterpret(interpreter);
     testOrderOfOperators(interpreter);
     testFunctionParsing(interpreter);
+
+    testScalarStringify();
 }
 
 QTEST_MAIN(TestMathInterpreter)

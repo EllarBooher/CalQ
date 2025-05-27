@@ -33,10 +33,12 @@ qt_standard_project_setup()
 
 qt_add_library(CalQMath
   STATIC
-  src/math/mathinterpreter.h src/math/mathinterpreter.cpp
-  src/math/mathfunction.h src/math/mathfunction.cpp
-  src/math/mathstatement.h src/math/mathstatement.cpp
+  src/math/mathinterpreter.h     src/math/mathinterpreter.cpp
+  src/math/mathfunction.h        src/math/mathfunction.cpp
+  src/math/mathstatement.h       src/math/mathstatement.cpp
   src/math/mathstatementparser.h src/math/mathstatementparser.cpp
+  src/math/number.h
+  src/math/mathstringify.h       src/math/mathstringify.cpp
 )
 set_property(TARGET CalQMath PROPERTY CXX_STANDARD 23)
 target_include_directories(CalQMath PUBLIC ${GMPXX_INCLUDE_DIR})

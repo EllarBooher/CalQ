@@ -1,10 +1,10 @@
 #pragma once
 
 #include "mathfunction.h"
+#include "number.h"
 #include <algorithm>
 #include <cstdint>
 #include <expected>
-#include <gmpxx.h>
 #include <memory>
 #include <optional>
 #include <string>

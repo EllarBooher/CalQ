@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "math/mathinterpreter.h"
+#include "math/mathstringify.h"
 #include "ui_mainwindow.h"
 
 #include <QLineEdit>
@@ -44,46 +45,12 @@ MainWindow::~MainWindow() = default;
 
 namespace
 {
-auto toString(Scalar const& number) -> QString
-{
-    ptrdiff_t constexpr PRECISION_DIGITS = 10;
-
-    QString output{};
-    mp_exp_t exponent;
-    // Extract base-10 mantissa
-    output += number.get_str(exponent).substr(0, PRECISION_DIGITS);
-    // TODO: implement floating decimal point
-
-    if (exponent >= PRECISION_DIGITS)
-    {
-        output.insert(1, '.');
-        output += "e";
-        output += QString::number(exponent);
-    }
-    else if (exponent < 0)
-    {
-        output.insert(1, '.');
-        output += "e-";
-        output += QString::number(exponent);
-    }
-    else if (exponent == 0)
-    {
-        output.prepend("0.");
-    }
-    else
-    {
-        output.insert(exponent, '.');
-    }
-
-    return output;
-}
-
 auto toString(std::expected<Scalar, MathInterpretationError> const result)
     -> QString
 {
     if (result.has_value())
     {
-        return toString(result.value());
+        return QString::fromStdString(calqmath::toString(result.value()));
     }
 
     switch (result.error())

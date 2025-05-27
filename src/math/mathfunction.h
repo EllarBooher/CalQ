@@ -1,12 +1,11 @@
 #pragma once
 
-#include "gmpxx.h"
+#include "number.h"
 #include <functional>
 #include <map>
 #include <optional>
 #include <string>
 
-using Scalar = mpf_class;
 using MathUnaryFunction = std::function<Scalar(Scalar)>;
 
 class MathFunctionDatabase

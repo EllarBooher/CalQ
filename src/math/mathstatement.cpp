@@ -1,13 +1,13 @@
 #include "mathstatement.h"
 
 #include "mathfunction.h"
+#include "mathstringify.h"
 #include <cassert>
 #include <cctype>
 #include <cstddef>
 #include <deque>
 #include <expected>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <variant>
 #include <vector>
@@ -269,13 +269,7 @@ auto MathStatement::stringTerm(size_t index) const -> std::string
     assert(index < m_terms.size() || m_terms[index] != nullptr);
 
     auto const visitor = overloads{
-        [](Scalar const& number)
-    {
-        std::stringstream buf;
-        (void)number;
-        buf << &number;
-        return buf.str();
-    },
+        [](Scalar const& number) { return calqmath::toString(number); },
         [](MathStatement const& statement)
     { return "(" + statement.string() + ")"; },
     };

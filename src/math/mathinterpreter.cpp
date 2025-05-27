@@ -1,14 +1,13 @@
 #include "mathinterpreter.h"
 
 #include "mathstatementparser.h"
+#include "number.h"
 #include <cassert>
 #include <cctype>
 #include <expected>
 #include <optional>
 #include <string>
 #include <vector>
-
-#include <gmpxx.h>
 
 namespace
 {
