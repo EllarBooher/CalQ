@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(SciCalc LANGUAGES CXX)
+project(CalQ LANGUAGES CXX)
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Test)
 
@@ -8,55 +8,55 @@ qt_standard_project_setup()
 enable_testing(true)
 
 qt_add_library(
-    SciCalcMath
+    CalQMath
     math/mathinterpreter.h math/mathinterpreter.cpp
 )
-set_property(TARGET SciCalcMath PROPERTY CXX_STANDARD 23)
+set_property(TARGET CalQMath PROPERTY CXX_STANDARD 23)
 
-qt_add_executable(SciCalc
+qt_add_executable(CalQ
     WIN32 MACOSX_BUNDLE
     main.cpp
     mainwindow.cpp
     mainwindow.h
     mainwindow.ui
 )
-set_property(TARGET SciCalc PROPERTY CXX_STANDARD 23)
-target_link_libraries(SciCalc
+set_property(TARGET CalQ PROPERTY CXX_STANDARD 23)
+target_link_libraries(CalQ
     PRIVATE
         Qt::Core
         Qt::Widgets
-        SciCalcMath
+        CalQMath
 )
 
-qt_add_executable(SciCalcTest
+qt_add_executable(CalQTest
     WIN32 MACOSX_BUNDLE
     math/mathtest.cpp
 )
-set_property(TARGET SciCalcTest PROPERTY CXX_STANDARD 23)
-target_link_libraries(SciCalcTest
+set_property(TARGET CalQTest PROPERTY CXX_STANDARD 23)
+target_link_libraries(CalQTest
     PRIVATE
         Qt::Core
         Qt::Test
-        SciCalcMath
+        CalQMath
 )
 
 include(GNUInstallDirs)
 
-install(TARGETS SciCalc SciCalcTest
+install(TARGETS CalQ CalQTest
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
 qt_generate_deploy_app_script(
-    TARGET SciCalc
+    TARGET CalQ
     OUTPUT_SCRIPT deploy_script
     NO_UNSUPPORTED_PLATFORM_ERROR
 )
 install(SCRIPT ${deploy_script})
 
 qt_generate_deploy_app_script(
-    TARGET SciCalcTest
+    TARGET CalQTest
     OUTPUT_SCRIPT deploy_script
     NO_UNSUPPORTED_PLATFORM_ERROR
 )
