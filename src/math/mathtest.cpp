@@ -6,7 +6,6 @@
 #include <QTest>
 #include <QtLogging>
 
-#include "backend/functions.h"
 #include "backend/number.h"
 #include <expected>
 #include <optional>
@@ -283,14 +282,44 @@ void testFunctionParsing(calqmath::Interpreter const& interpreter)
         {"id(1.0 + id(4.0))", calqmath::Scalar{"5.0"}},
         {"id(id(4.0)+id(2.0))", calqmath::Scalar{"6.0"}},
         {"4.0 + id(3.0)", calqmath::Scalar{"7.0"}},
-        {"sqrt(2.0)", calqmath::Functions::sqrt(calqmath::Scalar{"2.0"})},
-        {"exp(2.0)", calqmath::Functions::exp(calqmath::Scalar{"2.0"})},
-        {"log(2.0)", calqmath::Functions::log(calqmath::Scalar{"2.0"})},
     };
 
     for (auto const& [input, output] : testCases)
     {
         QCOMPARE(interpreter.interpret(input), output);
+    }
+
+    // Functions have non-overlapping domains, so we have individual test values
+    // We test if interpreting is the same as invoking the function itself.
+    std::map<std::string, std::vector<std::string>> const
+        testValuesByFunctionName{
+            {"id", {"2.0"}},    {"abs", {"2.0"}},   {"ceil", {"4.5"}},
+            {"floor", {"4.5"}}, {"round", {"4.5"}}, {"roundeven", {"4.5"}},
+            {"trunc", {"4.5"}}, {"sqrt", {"2.0"}},  {"cbrt", {"2.0"}},
+            {"exp", {"2.0"}},   {"log", {"2.0"}},   {"erf", {"2.0"}},
+            {"erfc", {"2.0"}},  {"gamma", {"2.0"}}, {"sin", {"2.0"}},
+            {"csc", {"2.0"}},   {"asin", {"0.5"}},  {"cos", {"2.0"}},
+            {"sec", {"2.0"}},   {"acos", {"0.5"}},  {"tan", {"2.0"}},
+            {"cot", {"2.0"}},   {"atan", {"2.0"}},  {"sinh", {"2.0"}},
+            {"cosh", {"2.0"}},  {"tanh", {"2.0"}},  {"asinh", {"2.0"}},
+            {"acosh", {"2.0"}}, {"atanh", {"0.5"}},
+        };
+
+    for (auto const& name : interpreter.functions().unaryNames())
+    {
+        // Don't allow any untested functions
+        QVERIFY(testValuesByFunctionName.contains(name));
+
+        for (auto const& input : testValuesByFunctionName.at(name))
+        {
+            auto const actual{
+                interpreter.interpret(std::format("{}({})", name, input))
+            };
+            auto const expected{interpreter.functions().lookup(name).value()(
+                calqmath::Scalar{input}
+            )};
+            QCOMPARE(actual, expected);
+        }
     }
 }
 

@@ -63,6 +63,8 @@ public:
     [[nodiscard]] auto interpret(std::string const& rawInput) const
         -> std::expected<Scalar, InterpretError>;
 
+    [[nodiscard]] auto functions() const -> FunctionDatabase const&;
+
 private:
     FunctionDatabase m_functions;
 };

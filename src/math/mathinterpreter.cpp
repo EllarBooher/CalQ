@@ -62,4 +62,9 @@ auto Interpreter::interpret(std::string const& rawInput) const
 
     return evaluated.value();
 }
+
+auto Interpreter::functions() const -> FunctionDatabase const&
+{
+    return m_functions;
+}
 } // namespace calqmath

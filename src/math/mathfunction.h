@@ -4,6 +4,7 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <ranges>
 #include <string>
 
 namespace calqmath
@@ -26,6 +27,11 @@ public:
      */
     [[nodiscard]] auto lookup(std::string const& identifier) const
         -> std::optional<UnaryFunction>;
+
+    [[nodiscard]] auto unaryNames() const
+    {
+        return std::views::keys(m_unaryFunctions) | std::views::as_const;
+    }
 
 private:
     std::map<std::string, UnaryFunction> m_unaryFunctions;
