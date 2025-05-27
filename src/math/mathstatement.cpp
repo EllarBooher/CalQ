@@ -7,6 +7,7 @@
 #include <deque>
 #include <expected>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <variant>
 #include <vector>
@@ -131,7 +132,7 @@ auto MathStatement::string() const -> std::string
     return output;
 }
 
-auto MathStatement::evaluate() const -> std::optional<double>
+auto MathStatement::evaluate() const -> std::optional<Scalar>
 {
 
     if (!valid())
@@ -144,7 +145,7 @@ auto MathStatement::evaluate() const -> std::optional<double>
         return 0.0;
     }
 
-    std::deque<double> terms{};
+    std::deque<Scalar> terms{};
     for (size_t termIndex = 0; termIndex < m_terms.size(); termIndex++)
     {
         auto const evaluateResult = evaluateTerm(termIndex);
@@ -172,8 +173,8 @@ auto MathStatement::evaluate() const -> std::optional<double>
             mathOperator == MathOp::Multiply || mathOperator == MathOp::Divide
         );
 
-        double const firstTerm = terms[index];
-        double const secondTerm = terms[index + 1];
+        Scalar const firstTerm = terms[index];
+        Scalar const secondTerm = terms[index + 1];
 
         terms.erase(terms.begin() + index);
         operators.erase(operators.begin() + index);
@@ -194,8 +195,8 @@ auto MathStatement::evaluate() const -> std::optional<double>
         MathOp const mathOperator = operators[0];
         assert(mathOperator == MathOp::Plus || mathOperator == MathOp::Minus);
 
-        double const firstTerm = terms[0];
-        double const secondTerm = terms[1];
+        Scalar const firstTerm = terms[0];
+        Scalar const secondTerm = terms[1];
 
         terms.pop_front();
         operators.pop_front();
@@ -212,7 +213,7 @@ auto MathStatement::evaluate() const -> std::optional<double>
     }
 
     assert(terms.size() == 1);
-    double const result = terms[0];
+    Scalar result = std::move(terms)[0];
 
     if (m_function.has_value())
     {
@@ -268,7 +269,13 @@ auto MathStatement::stringTerm(size_t index) const -> std::string
     assert(index < m_terms.size() || m_terms[index] != nullptr);
 
     auto const visitor = overloads{
-        [](double const& number) { return std::to_string(number); },
+        [](Scalar const& number)
+    {
+        std::stringstream buf;
+        (void)number;
+        buf << &number;
+        return buf.str();
+    },
         [](MathStatement const& statement)
     { return "(" + statement.string() + ")"; },
     };
@@ -276,12 +283,12 @@ auto MathStatement::stringTerm(size_t index) const -> std::string
     return std::visit(visitor, *m_terms[index]);
 }
 
-auto MathStatement::evaluateTerm(size_t index) const -> std::optional<double>
+auto MathStatement::evaluateTerm(size_t index) const -> std::optional<Scalar>
 {
     assert(index < m_terms.size() || m_terms[index] != nullptr);
 
     auto const visitor = overloads{
-        [](double const& number) { return std::optional{number}; },
+        [](Scalar const& number) { return std::optional{number}; },
         [](MathStatement const& statement) { return statement.evaluate(); }
     };
 

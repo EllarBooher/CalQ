@@ -44,13 +44,46 @@ MainWindow::~MainWindow() = default;
 
 namespace
 {
-auto mathResultToQString(
-    std::expected<double, MathInterpretationError> const result
-) -> QString
+auto toString(Scalar const& number) -> QString
+{
+    ptrdiff_t constexpr PRECISION_DIGITS = 10;
+
+    QString output{};
+    mp_exp_t exponent;
+    // Extract base-10 mantissa
+    output += number.get_str(exponent).substr(0, PRECISION_DIGITS);
+    // TODO: implement floating decimal point
+
+    if (exponent >= PRECISION_DIGITS)
+    {
+        output.insert(1, '.');
+        output += "e";
+        output += QString::number(exponent);
+    }
+    else if (exponent < 0)
+    {
+        output.insert(1, '.');
+        output += "e-";
+        output += QString::number(exponent);
+    }
+    else if (exponent == 0)
+    {
+        output.prepend("0.");
+    }
+    else
+    {
+        output.insert(exponent, '.');
+    }
+
+    return output;
+}
+
+auto toString(std::expected<Scalar, MathInterpretationError> const result)
+    -> QString
 {
     if (result.has_value())
     {
-        return QString::number(result.value());
+        return toString(result.value());
     }
 
     switch (result.error())
@@ -79,7 +112,7 @@ void MainWindow::onLineEnterPressed()
     m_messages->append(QString::fromUtf8(prettified));
 
     auto const mathResult = m_interpreter->interpret(messageStd);
-    m_messages->append(mathResultToQString(mathResult));
+    m_messages->append(::toString(mathResult));
 
     m_messagesModel->setStringList(*m_messages);
     m_ui->lineEdit->clear();
@@ -98,8 +131,7 @@ void MainWindow::onLineTextUpdated(QString const& newText)
 
     auto const equation =
         QString::fromUtf8(MathInterpreter::prettify(messageStd));
-    auto const result =
-        mathResultToQString(m_interpreter->interpret(messageStd));
+    auto const result = ::toString(m_interpreter->interpret(messageStd));
 
     setPreviewLabels(equation, result);
 }

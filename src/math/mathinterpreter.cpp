@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include <gmpxx.h>
+
 namespace
 {
 // TODO: rewrite this an support locales
@@ -37,7 +39,7 @@ auto MathInterpreter::parse(std::string const& rawInput) const
 }
 
 auto MathInterpreter::interpret(std::string const& rawInput) const
-    -> std::expected<double, MathInterpretationError>
+    -> std::expected<Scalar, MathInterpretationError>
 {
     auto const parsed = parse(rawInput);
     if (!parsed.has_value())
@@ -52,7 +54,5 @@ auto MathInterpreter::interpret(std::string const& rawInput) const
         return std::unexpected(MathInterpretationError::EvaluationError);
     }
 
-    auto const result = evaluated.value();
-
-    return result;
+    return evaluated.value();
 }

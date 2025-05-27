@@ -27,6 +27,64 @@ template <> auto QTest::toString(MathStatement const& statement) -> char*
     return qstrdup(bytes);
 }
 
+template <> auto QTest::toString(Scalar const& number) -> char*
+{
+    ptrdiff_t constexpr PRECISION_DIGITS = 10;
+
+    QString output{};
+    mp_exp_t exponent;
+    // Extract base-10 mantissa
+    output += number.get_str(exponent).substr(0, PRECISION_DIGITS);
+    // TODO: implement floating decimal point
+
+    if (exponent >= PRECISION_DIGITS)
+    {
+        output.insert(1, '.');
+        output += "e";
+        output += QString::number(exponent);
+    }
+    else if (exponent < 0)
+    {
+        output.insert(1, '.');
+        output += "e-";
+        output += QString::number(exponent);
+    }
+    else if (exponent == 0)
+    {
+        output.prepend("0.");
+    }
+    else
+    {
+        output.insert(exponent, '.');
+    }
+
+    QByteArray const bytes = output.toUtf8();
+
+    return qstrdup(bytes);
+}
+
+template <>
+auto QTest::toString(
+    std::expected<Scalar, MathInterpretationError> const& result
+) -> char*
+{
+    QString output{};
+
+    if (result.has_value())
+    {
+        output += "expected: ";
+        output += QTest::toString(result.value());
+    }
+    else
+    {
+        output += "unexpected: ";
+        output += QTest::toString(result.error());
+    }
+
+    QByteArray const bytes = output.toUtf8();
+    return qstrdup(bytes);
+}
+
 template <>
 auto QTest::toString(std::optional<MathStatement> const& statement) -> char*
 {
@@ -154,15 +212,14 @@ void testWhitespace(MathInterpreter const& interpreter)
 
 void testInterpret(MathInterpreter const& interpreter)
 {
-    // These cases are lacking and should be expanded
-    std::vector<std::tuple<std::string, double>> const successTestCases{
+    std::vector<std::tuple<std::string, Scalar>> const successTestCases{
         {"5", 5.0},
         {"12345", 12345.0},
         {"0+0", 0.0},
         {"1+0", 1.0},
         {"0+2", 2.0},
         {"1/2", 0.5},
-        {"1/3", 1.0 / 3.0},
+        {"1/3", 1.0 / Scalar{3.0}},
         {"1*2*3*4*5", 1.0 * 2.0 * 3.0 * 4.0 * 5.0},
     };
 
@@ -184,15 +241,16 @@ void testInterpret(MathInterpreter const& interpreter)
 
 void testOrderOfOperators(MathInterpreter const& interpreter)
 {
-    std::vector<std::tuple<std::string, double>> const PEMDASTestCases{
-        {"1 * 2 + 3 / 4 - 5", (1.0 * 2.0) + (3.0 / 4.0) - 5.0},
-        {"1 - 2 * 3 + 4 / 5", 1.0 - (2.0 * 3.0) + (4.0 / 5.0)},
-        {"1 / 2 - 3 * 4 + 5", (1.0 / 2.0) - (3.0 * 4.0) + 5.0},
-        {"1 + 2 / 3 - 4 * 5", 1.0 + (2.0 / 3.0) - (4.0 * 5.0)},
+    std::vector<std::tuple<std::string, Scalar>> const PEMDASTestCases{
+        {"1 * 2 + 3 / 4 - 5", (1.0 * 2.0) + (3.0 / Scalar{4.0}) - 5.0},
+        {"1 - 2 * 3 + 4 / 5", 1.0 - (2.0 * 3.0) + (4.0 / Scalar{5.0})},
+        {"1 / 2 - 3 * 4 + 5", (1.0 / Scalar{2.0}) - (3.0 * 4.0) + 5.0},
+        {"1 + 2 / 3 - 4 * 5", 1.0 + (2.0 / Scalar{3.0}) - (4.0 * 5.0)},
     };
     for (auto const& [input, output] : PEMDASTestCases)
     {
-        QCOMPARE(interpreter.interpret(input), output);
+        auto const actual = interpreter.interpret(input);
+        QCOMPARE(actual, output);
     }
 }
 
@@ -206,7 +264,7 @@ void testFunctionParsing(MathInterpreter const& interpreter)
         QVERIFY(!interpreter.parse(input).has_value());
     }
 
-    std::vector<std::tuple<std::string, double>> const testCases{
+    std::vector<std::tuple<std::string, Scalar>> const testCases{
         {"id(1)", 1.0},
         {"id(id(2))", 2.0},
         {"id(id(id(3)))", 3.0},
@@ -214,7 +272,7 @@ void testFunctionParsing(MathInterpreter const& interpreter)
         {"id(1.0 + id(4.0))", 5.0},
         {"id(id(4.0)+id(2.0))", 6.0},
         {"4.0 + id(3.0)", 7.0},
-        {"sqrt(2.0)", std::numbers::sqrt2}
+        {"sqrt(2.0)", sqrt(Scalar{2.0})}
     };
 
     for (auto const& [input, output] : testCases)

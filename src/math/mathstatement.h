@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <expected>
+#include <gmpxx.h>
 #include <memory>
 #include <optional>
 #include <string>
@@ -19,7 +20,8 @@ enum class MathOp : uint8_t
 };
 
 class MathStatement;
-using MathTerm = std::variant<MathStatement, double>;
+using Scalar = mpf_class;
+using MathTerm = std::variant<MathStatement, Scalar>;
 
 class MathStatement
 {
@@ -49,7 +51,7 @@ public:
 
     auto operator==(MathStatement const& rhs) const -> bool;
     [[nodiscard]] auto string() const -> std::string;
-    [[nodiscard]] auto evaluate() const -> std::optional<double>;
+    [[nodiscard]] auto evaluate() const -> std::optional<Scalar>;
 
     [[nodiscard]] auto length() const -> size_t;
 
@@ -69,7 +71,7 @@ public:
 private:
     [[nodiscard]] auto stringTerm(size_t index) const -> std::string;
     [[nodiscard]] auto evaluateTerm(size_t index) const
-        -> std::optional<double>;
+        -> std::optional<Scalar>;
 
     // A function that is run as the statements final result. null optional
     // indicates the identity function, so a no-op.

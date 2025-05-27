@@ -1,0 +1,68 @@
+{
+  "version": 10,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "cmake-pedantic",
+      "warnings": {
+        "dev": true,
+        "deprecated": true,
+        "uninitialized": true,
+        "unusedCli": true,
+        "systemVars": false
+      },
+      "errors": {
+        "dev": true,
+        "deprecated": true
+      },
+      "hidden": true
+    },
+    {
+      "name": "vcpkg",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "generator": "Ninja Multi-Config",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      },
+      "hidden": true
+    },
+    {
+      "name": "build",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "hidden": true
+    },
+    {
+      "name": "clang-gcc-flags",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS_INIT": "-Wall -Werror -Wimplicit-fallthrough -Wextra"
+      },
+      "hidden": true
+    },
+    {
+      "name": "vcpkg-linux",
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-linux"
+      },
+      "hidden": true
+    },
+    {
+      "name": "vcpkg-mingw-static",
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-mingw-static"
+      },
+      "hidden": true
+    },
+    {
+      "name": "x64-linux",
+      "inherits": ["vcpkg", "build", "clang-gcc-flags", "cmake-pedantic", "vcpkg-linux"]
+    },
+    {
+      "name": "x64-windows-mingw",
+      "inherits": ["vcpkg", "build", "clang-gcc-flags", "cmake-pedantic", "vcpkg-mingw-static"]
+    }
+  ]
+}

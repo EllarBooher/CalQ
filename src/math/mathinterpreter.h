@@ -59,7 +59,7 @@ public:
      * @param rawInput - The stringified equation.
      */
     [[nodiscard]] auto interpret(std::string const& rawInput) const
-        -> std::expected<double, MathInterpretationError>;
+        -> std::expected<Scalar, MathInterpretationError>;
 
 private:
     MathFunctionDatabase m_functions;
