@@ -312,7 +312,7 @@ private:
             return std::nullopt;
         }
 
-        return statement;
+        return std::move(statement);
     }
 
     std::string const trimmed;
@@ -361,9 +361,66 @@ auto MathInterpreter::interpret(std::string const& rawInput)
     return result;
 }
 
+auto MathStatement::operator=(MathStatement const& other) -> MathStatement&
+{
+    m_terms.clear();
+
+    for (auto const& term : other.m_terms)
+    {
+        m_terms.push_back(std::make_unique<MathTerm>(*term));
+    }
+    m_operators = other.m_operators;
+
+    return *this;
+}
+
+MathStatement::MathStatement(MathStatement const& other) { *this = other; }
+
+auto MathStatement::operator=(MathStatement&& other) noexcept -> MathStatement&
+{
+    m_terms = std::move(other).m_terms;
+    m_operators = std::move(other).m_operators;
+
+    return *this;
+}
+
+MathStatement::MathStatement(MathStatement&& other) noexcept
+{
+    *this = std::move(other);
+}
+
 auto MathStatement::operator==(MathStatement const& rhs) const -> bool
 {
-    return m_terms == rhs.m_terms && m_operators == rhs.m_operators;
+    if (length() != rhs.length())
+    {
+        return false;
+    }
+
+    if (m_operators != rhs.m_operators)
+    {
+        return false;
+    }
+
+    for (size_t index = 0; index < length(); index++)
+    {
+        auto const& lhsTerm{m_terms[index]};
+        auto const& rhsTerm{rhs.m_terms[index]};
+        if (lhsTerm == nullptr && rhsTerm == nullptr)
+        {
+            continue;
+        }
+        if (lhsTerm == nullptr || rhsTerm == nullptr)
+        {
+            return false;
+        }
+
+        if (*lhsTerm != *rhsTerm)
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 namespace
@@ -386,6 +443,11 @@ auto mathOperatorToString(MathOp const mathOp) -> char const*
 }
 } // namespace
 
+template <class... Ts> struct overloads : Ts...
+{
+    using Ts::operator()...;
+};
+
 auto MathStatement::string() const -> std::string
 {
     if (!valid())
@@ -400,13 +462,13 @@ auto MathStatement::string() const -> std::string
 
     std::string output{};
 
-    output += std::to_string(m_terms[0]);
+    output += stringTerm(0);
     for (size_t i = 0; i < m_operators.size(); i++)
     {
         output += ',';
         output += mathOperatorToString(m_operators[i]);
         output += ',';
-        output += std::to_string(m_terms[i + 1]);
+        output += stringTerm(i + 1);
     }
 
     return output;
@@ -414,6 +476,7 @@ auto MathStatement::string() const -> std::string
 
 auto MathStatement::evaluate() const -> std::optional<double>
 {
+
     if (!valid())
     {
         return std::nullopt;
@@ -424,12 +487,22 @@ auto MathStatement::evaluate() const -> std::optional<double>
         return 0.0;
     }
 
-    if (m_terms.size() == 1)
+    std::deque<double> terms{};
+    for (size_t termIndex = 0; termIndex < m_terms.size(); termIndex++)
     {
-        return m_terms[0];
+        auto const evaluateResult = evaluateTerm(termIndex);
+        if (!evaluateResult.has_value())
+        {
+            return std::nullopt;
+        }
+        terms.push_back(evaluateResult.value());
     }
 
-    std::deque<MathTerm> terms{m_terms.begin(), m_terms.end()};
+    if (terms.size() == 1)
+    {
+        return terms[0];
+    }
+
     std::deque<MathOp> operators{m_operators.begin(), m_operators.end()};
 
     // Reduce while evaluating operators for adjacent terms.
@@ -492,17 +565,43 @@ auto MathStatement::evaluate() const -> std::optional<double>
 
 auto MathStatement::length() const -> size_t { return m_terms.size(); }
 
-void MathStatement::reset(MathTerm initial)
+void MathStatement::reset(MathTerm&& initial)
 {
     m_terms.clear();
     m_operators.clear();
 
-    m_terms.push_back(initial);
+    m_terms.push_back(std::make_unique<MathTerm>(std::move(initial)));
 }
 
 auto MathStatement::append(MathOp mathOp) -> MathTerm&
 {
+    m_terms.push_back(std::make_unique<MathTerm>(0.0));
     m_operators.push_back(mathOp);
-    m_terms.push_back(0.0);
-    return m_terms.back();
+
+    return *m_terms.back();
+}
+
+auto MathStatement::stringTerm(size_t index) const -> std::string
+{
+    assert(index < m_terms.size() || m_terms[index] != nullptr);
+
+    auto const visitor = overloads{
+        [](double const& number) { return std::to_string(number); },
+        [](MathStatement const& statement)
+    { return "(" + statement.string() + ")"; },
+    };
+
+    return std::visit(visitor, *m_terms[index]);
+}
+
+auto MathStatement::evaluateTerm(size_t index) const -> std::optional<double>
+{
+    assert(index < m_terms.size() || m_terms[index] != nullptr);
+
+    auto const visitor = overloads{
+        [](double const& number) { return std::optional{number}; },
+        [](MathStatement const& statement) { return statement.evaluate(); }
+    };
+
+    return std::visit(visitor, *m_terms[index]);
 }

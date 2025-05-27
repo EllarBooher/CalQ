@@ -1,10 +1,13 @@
 #ifndef MATHINTERPRETER_H
 #define MATHINTERPRETER_H
 
+#include <algorithm>
 #include <cstdint>
 #include <expected>
+#include <memory>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 enum class MathInterpretationError : uint8_t
@@ -21,16 +24,31 @@ enum class MathOp : uint8_t
     Divide
 };
 
-using MathTerm = double;
+class MathStatement;
+using MathTerm = std::variant<MathStatement, double>;
 
 class MathStatement
 {
 public:
+    MathStatement() = default;
+
+    auto operator=(MathStatement const&) -> MathStatement&;
+    MathStatement(MathStatement const&);
+
+    auto operator=(MathStatement&&) noexcept -> MathStatement&;
+    MathStatement(MathStatement&&) noexcept;
+
     [[nodiscard]] auto valid() const -> bool
     {
+        bool const completelyEmpty = m_terms.empty() && m_operators.empty();
+        bool const oneOpBetweenAllConsecutiveTerms =
+            m_operators.size() == m_terms.size() - 1;
+        bool const noNullChildren =
+            std::count(m_terms.begin(), m_terms.end(), nullptr) == 0;
+
         return (
-            m_terms.empty() && m_operators.empty()
-            || m_operators.size() == m_terms.size() - 1
+            (completelyEmpty || oneOpBetweenAllConsecutiveTerms)
+            && noNullChildren
         );
     }
     [[nodiscard]] auto empty() const -> bool { return length() == 0; }
@@ -41,7 +59,7 @@ public:
 
     [[nodiscard]] auto length() const -> size_t;
 
-    void reset(MathTerm initial);
+    void reset(MathTerm&& initial);
 
     /**
      * @brief append - Append a new term prepended by an operator
@@ -51,8 +69,12 @@ public:
     [[nodiscard]] auto append(MathOp mathOp) -> MathTerm&;
 
 private:
+    [[nodiscard]] auto stringTerm(size_t index) const -> std::string;
+    [[nodiscard]] auto evaluateTerm(size_t index) const
+        -> std::optional<double>;
+
     // A valid statement interleaves terms and operators, or is completely empty
-    std::vector<MathTerm> m_terms;
+    std::vector<std::unique_ptr<MathTerm>> m_terms;
     std::vector<MathOp> m_operators;
 };
 
