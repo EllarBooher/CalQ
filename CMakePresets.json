@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 4,
   "cmakeMinimumRequired": {
     "major": 3,
     "minor": 23,
@@ -52,7 +52,10 @@
     {
       "name": "vcpkg-mingw-static",
       "cacheVariables": {
-        "VCPKG_TARGET_TRIPLET": "x64-mingw-static"
+        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/toolchains/mingw.cmake",
+        "VCPKG_TARGET_ARCHITECTURE": "x64",
+        "VCPKG_TARGET_TRIPLET": "x64-mingw-static",
+        "VCPKG_HOST_TRIPLET": "x64-mingw-static"
       },
       "hidden": true
     },
@@ -62,7 +65,7 @@
     },
     {
       "name": "x64-windows-mingw",
-      "inherits": ["vcpkg", "build", "clang-gcc-flags", "cmake-pedantic", "vcpkg-mingw-static"]
+      "inherits": ["vcpkg","build","clang-gcc-flags","cmake-pedantic","vcpkg-mingw-static"]
     }
   ]
 }

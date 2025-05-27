@@ -5,13 +5,22 @@ project(CalQ LANGUAGES CXX)
 # USAGE
 ################################################################################
 #
+# See ./scripts/ for interactive powershell scripts that assist with building.
+#
 # 1) When using vcpkg preset, set environment variable VCPKG_ROOT to the root
 #    of your vcpkg installation.
-# 2) Make sure the QT_DIR cmake scripts folder with "Qt6Config.cmake" is in your
-#    env's PATH or otherwise discoverable by CMake. Optionally, pass in this
-#    folder to the CMake variable QT_DIR.
-#    For example, if the folder is "/home/user/qt/6.9.0/gcc_64/lib/cmake/Qt6"
-#    then invoke CMake with "-DQT_DIR=/home/user/qt/6.9.0/gcc_64/lib/cmake/Qt6"
+# 2) Ensure all tooling is on your PATH environment variable, depending on the
+#    build environment. This includes:
+#     - Qt CMake script discoverable by FindPackage
+#     - Generator compatible with Qt
+#     - C++ compiler
+#     - powershell (as required by vcpkg)
+#
+#    Example of a minimal PATH variable when building for vcpkg plus MinGW:
+#        PATH = C:\Qt\Tools\mingw1310_64\bin;
+#               C:\Qt\Tools\Ninja;
+#               C:\Qt\6.9.0\mingw_64;
+#               C:\Windows\System32\WindowsPowerShell\v1.0
 #
 # Optional steps
 # a) Make sure CLANG_TIDY is on your PATH in a way that can be discovered by
@@ -21,12 +30,6 @@ project(CalQ LANGUAGES CXX)
 #
 ################################################################################
 
-# Prefix a prioritized QT install
-# TODO: do we need to also add specific modules e.g. QtWidgets to the path?
-if(DEFINED QT_DIR)
-  message("Using explicit Qt installation at: ${QT_DIR}")
-  list(PREPEND CMAKE_PREFIX_PATH "${QT_DIR}")
-endif()
 # Load our FindGMP script for find_package
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
@@ -92,7 +95,6 @@ target_link_libraries(CalQApp PRIVATE Qt::Core Qt::Widgets CalQInterpreter)
 ################################################################################
 
 qt_add_executable(CalQTest
-  WIN32 MACOSX_BUNDLE
   src/test/mathtest.cpp
 )
 set_target_properties(CalQTest PROPERTIES CXX_STANDARD 23)
