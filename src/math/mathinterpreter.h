@@ -38,12 +38,16 @@ public:
         return m_operators;
     }
 
-    [[nodiscard]] auto isValid() const -> bool
+    [[nodiscard]] auto valid() const -> bool
     {
         return (
             m_terms.empty() && m_operators.empty()
             || m_operators.size() == m_terms.size() - 1
         );
+    }
+    [[nodiscard]] auto empty() const -> bool
+    {
+        return m_terms.empty() || m_operators.empty();
     }
 
     auto operator==(MathStatement const& rhs) const -> bool;

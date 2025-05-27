@@ -43,7 +43,7 @@ template <> auto QTest::toString(MathStatement const& statement) -> char*
 {
     QString output{};
 
-    if (!statement.isValid() || statement.terms().empty())
+    if (!statement.valid() || statement.terms().empty())
     {
         output += "Invalid";
     }

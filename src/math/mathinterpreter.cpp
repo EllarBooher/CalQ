@@ -254,7 +254,7 @@ private:
 
         MathStatement statement{terms, operators};
 
-        if (!statement.isValid())
+        if (!statement.valid())
         {
             return std::nullopt;
         }
@@ -290,9 +290,14 @@ auto MathInterpreter::parse(std::string const& rawInput)
 auto MathInterpreter::evaluate(MathStatement const& statement)
     -> std::optional<double>
 {
-    if (!statement.isValid())
+    if (!statement.valid())
     {
         return std::nullopt;
+    }
+
+    if (statement.empty())
+    {
+        return 0.0;
     }
 
     std::deque<double> terms{
