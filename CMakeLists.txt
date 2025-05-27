@@ -41,6 +41,7 @@ qt_add_library(CalQMath
   src/math/backend/number.h      src/math/backend/number.cpp
   src/math/backend/numberimpl.h
   src/math/backend/functions.h   src/math/backend/functions.cpp
+  src/math/lexer.h               src/math/lexer.cpp
 )
 set_property(TARGET CalQMath PROPERTY CXX_STANDARD 23)
 target_include_directories(CalQMath SYSTEM PUBLIC ${vendor_include_dir})

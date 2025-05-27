@@ -1,3 +1,4 @@
+#include "lexer.h"
 #include "mathinterpreter.h"
 
 #include <QByteArray>
@@ -79,6 +80,94 @@ auto QTest::toString(
     {
         output += "unexpected: ";
         output += QTest::toString(result.error());
+    }
+
+    QByteArray const bytes = output.toUtf8();
+    return qstrdup(bytes);
+}
+
+template <class... Ts> struct overloads : Ts...
+{
+    using Ts::operator()...;
+};
+
+template <>
+auto QTest::toString(std::vector<calqmath::Token> const& tokens) -> char*
+{
+    QString output{};
+
+    for (size_t i = 0; i < tokens.size(); i++)
+    {
+        auto const visitors{overloads{
+            [&](calqmath::TokenFunction const& name)
+        {
+            output += "f'";
+            output += name.value;
+        },
+            [&](calqmath::TokenNumber const& name)
+        {
+            output += "n'";
+            output += name.value;
+        },
+            [&](calqmath::TokenParanthesis const& paranthesis)
+        {
+            output += "p'";
+            switch (paranthesis)
+            {
+            case calqmath::TokenParanthesis::Open:
+                output += "(";
+                break;
+            case calqmath::TokenParanthesis::Close:
+                output += ")";
+                break;
+            }
+        },
+            [&](calqmath::TokenOperator const& mathOperator)
+        {
+            output += "o'";
+            switch (mathOperator)
+            {
+            case calqmath::TokenOperator::Plus:
+                output += "+";
+                break;
+            case calqmath::TokenOperator::Minus:
+                output += "-";
+                break;
+            case calqmath::TokenOperator::Multiply:
+                output += "*";
+                break;
+            case calqmath::TokenOperator::Divide:
+                output += "/";
+                break;
+            }
+        }
+        }};
+
+        std::visit(visitors, tokens[i]);
+        if (i < tokens.size() - 1)
+        {
+            output += ",";
+        }
+    }
+
+    QByteArray const bytes = output.toUtf8();
+    return qstrdup(bytes);
+}
+
+template <>
+auto QTest::toString(std::optional<std::vector<calqmath::Token>> const& result)
+    -> char*
+{
+    QString output{};
+
+    if (result.has_value())
+    {
+        output += "some: ";
+        output += QTest::toString(result.value());
+    }
+    else
+    {
+        output += "nullopt";
     }
 
     QByteArray const bytes = output.toUtf8();
@@ -289,8 +378,9 @@ void testFunctionParsing(calqmath::Interpreter const& interpreter)
         QCOMPARE(interpreter.interpret(input), output);
     }
 
-    // Functions have non-overlapping domains, so we have individual test values
-    // We test if interpreting is the same as invoking the function itself.
+    // Functions have non-overlapping domains, so we have individualized test
+    // values. We test if interpreting is the same as invoking the function
+    // itself.
     std::map<std::string, std::vector<std::string>> const
         testValuesByFunctionName{
             {"id", {"2.0"}},    {"abs", {"2.0"}},   {"ceil", {"4.5"}},
@@ -372,14 +462,106 @@ void testMinimalPrecision(calqmath::Interpreter const& interpreter)
     }
 }
 
+void testLexerWhitespace()
+{
+    using TestCase =
+        std::tuple<std::vector<std::string>, std::vector<calqmath::Token>>;
+    std::vector<TestCase> const cases{
+        {{" 0 - 1 + 2 / 3 * 4 ",
+          "   0   -  1  +  2  /  3  *  4  ",
+          "0-1  +2/3  *4",
+          "0  -1+2  /3*4",
+          "  0-1  +2/3*4",
+          "0  -1+2/3*4  "},
+         {calqmath::Lexer::convert("0-1+2/3*4").value()}}
+    };
+    for (auto const& [inputs, output] : cases)
+    {
+        for (auto const& input : inputs)
+        {
+            auto const actual = calqmath::Lexer::convert(input);
+            QCOMPARE(actual, output);
+        }
+    }
+}
+void testLexerNumbers()
+{
+    using calqmath::TokenNumber;
+    using TestCase = std::tuple<std::string, std::vector<calqmath::Token>>;
+    std::vector<TestCase> const cases{
+        {"0.0", {TokenNumber{"0.0"}}},
+        {"1.0", {TokenNumber{"1.0"}}},
+        {"0.123", {TokenNumber{"0.123"}}},
+        {"123.0", {TokenNumber{"123.0"}}},
+        {".123", {TokenNumber{".123"}}},
+        {"123.", {TokenNumber{"123."}}},
+        {"123456789.0", {TokenNumber{"123456789.0"}}},
+        {"1.2.3", {TokenNumber{"1.2"}, TokenNumber{".3"}}},
+        {"123.456.789", {TokenNumber{"123.456"}, TokenNumber{".789"}}},
+        {"1.2.3.4.5.6.7.8.9",
+         {TokenNumber{"1.2"},
+          TokenNumber{".3"},
+          TokenNumber{".4"},
+          TokenNumber{".5"},
+          TokenNumber{".6"},
+          TokenNumber{".7"},
+          TokenNumber{".8"},
+          TokenNumber{".9"}}}
+    };
+    for (auto const& [input, output] : cases)
+    {
+        auto const actual = calqmath::Lexer::convert(input);
+        QCOMPARE(actual, output);
+    }
+}
+void testLexerFunctionsAndNumbers()
+{
+    using calqmath::TokenFunction;
+    using calqmath::TokenNumber;
+    using TestCase = std::tuple<std::string, std::vector<calqmath::Token>>;
+    std::vector<TestCase> const cases{
+        {"sin", {TokenFunction{"sin"}}},
+        {"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+         {TokenFunction{"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"}}
+        },
+        {"sin12345678901234567890", {TokenFunction{"sin12345678901234567890"}}},
+        {"123sin", {TokenNumber{"123"}, TokenFunction{"sin"}}},
+        {"sin123", {TokenFunction{"sin123"}}},
+        {"sin123sin", {TokenFunction{"sin123sin"}}},
+        {"sin123.456", {TokenFunction{"sin123"}, TokenNumber{".456"}}},
+        {".sin", {TokenNumber{"."}, TokenFunction{"sin"}}},
+    };
+    for (auto const& [input, output] : cases)
+    {
+        auto const actual = calqmath::Lexer::convert(input);
+        QCOMPARE(actual, output);
+    }
+}
+
+void testLexerSingleCharacterTokens()
+{
+    using calqmath::TokenOperator;
+    using calqmath::TokenParanthesis;
+    auto const actual = calqmath::Lexer::convert("+-*/()");
+    std::vector<calqmath::Token> const expected{
+        TokenOperator::Plus,
+        TokenOperator::Minus,
+        TokenOperator::Multiply,
+        TokenOperator::Divide,
+        TokenParanthesis::Open,
+        TokenParanthesis::Close,
+    };
+    QCOMPARE(actual, expected);
+}
+
 } // namespace
 
 void TestMathInterpreter::test()
 {
     calqmath::Interpreter const interpreter{};
 
-    // Test this first, since a lot, including debugging, relies on being able
-    // to stringify properly.
+    // Test this first, since a lot, including debugging, relies on being
+    // able to stringify properly.
     testScalarStringify();
 
     testParse(interpreter);
@@ -389,6 +571,11 @@ void TestMathInterpreter::test()
     testOrderOfOperators(interpreter);
     testFunctionParsing(interpreter);
     testMinimalPrecision(interpreter);
+
+    testLexerWhitespace();
+    testLexerNumbers();
+    testLexerFunctionsAndNumbers();
+    testLexerSingleCharacterTokens();
 }
 
 QTEST_MAIN(TestMathInterpreter)
