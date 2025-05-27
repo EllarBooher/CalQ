@@ -30,8 +30,11 @@ param (
     # Which build config to use, e.g. Debug. Passed to CMake as --config $BuildConfig
     $BuildConfig,
     [switch]
-    # If set and the build tree already exists, it will be wiped before building. In any other case, CMake clean target is executed.
+    # If set and the build tree already exists, it will be wiped before building. Overrides -Clean.
     $ForceClean,
+    [switch]
+    # If set and the build tree already exists, CMake clean will be ran.
+    $Clean,
     [Parameter(Mandatory)]
     [ValidateSet("MinGW", "MSVC")]
     [string]
@@ -127,27 +130,36 @@ try{
 "*************** CLEAN ***************"
 ""
 # We check for the count of children, and not existence of the directory, since we (potentially) created it earlier.
-if($ForceClean -and -not (Get-ChildItem $OutDir).Length -eq 0) {
-    "Output directory '$OutDir' already exists, -ForceClean enabled so deleting its contents."
-    if($DryRun) {
-        ">>> Remove-Item $OutDir -Recurse"
-        ">>> New-Item $OutDir -Type `"Directory`""
-        "[[[ -DryRun skipped ]]]"
+if((Get-ChildItem $OutDir).Length -gt 0) {
+    if($ForceClean) {
+        "Output directory '$OutDir' already exists, -ForceClean enabled so deleting its contents."
+        if($DryRun) {
+            ">>> Remove-Item $OutDir -Recurse"
+            ">>> New-Item $OutDir -Type `"Directory`""
+            "[[[ -DryRun skipped ]]]"
+        } else {
+            # Split this into two commands, so the user gets just a single prompt for removing the existing directory
+            Remove-Item $OutDir -Recurse
+            New-Item $OutDir -Type "Directory" | Out-Null
+        }
+    } elseif ($Clean -and $(Test-Path "$OutDir/CMakeCache.txt")) {
+        ">>> & $CMake ``
+            --build $OutDir ``
+            --target clean"
+        if($DryRun) {
+            "[[[ -DryRun skipped ]]]"
+            ""
+        } else {
+            & $CMake --build $OutDir --target clean | MyLog
+        }
+    } elseif (-not $(Test-Path "$OutDir/CMakeCache.txt")) {
+        "Output directory '$OutDir' already exists and is nonempty, but no CMakeCache.txt exists, so it is unclear what to do. Pass -ForceClean or manually delete the folder and try again." | Write-Error
+        exit 1
     } else {
-        # Split this into two commands, so the user gets just a single prompt for removing the existing directory
-        Remove-Item $OutDir -Recurse
-        New-Item $OutDir -Type "Directory"
+        "Build tree exists, but -ForceClean and -Clean are not set so no cleaning to do."
     }
 } else {
-    ">>> & $CMake ``
-        --build $OutDir ``
-        --target clean"
-    if($DryRun) {
-        "[[[ -DryRun skipped ]]]"
-        ""
-    } else {
-        & $CMake --build $OutDir --target clean | MyLog
-    }
+    "Out directory is empty, no cleaning to do."
 }
 
 ""
