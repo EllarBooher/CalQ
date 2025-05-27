@@ -1,5 +1,5 @@
 #include "mainwindow.h"
-#include "math/mathinterpreter.h"
+#include "interpreter/mathinterpreter.h"
 #include "ui_mainwindow.h"
 
 #include <QLineEdit>

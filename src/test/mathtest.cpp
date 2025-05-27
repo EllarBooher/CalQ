@@ -1,6 +1,6 @@
-#include "lexer.h"
-#include "mathinterpreter.h"
-#include "parser.h"
+#include "interpreter/lexer.h"
+#include "interpreter/mathinterpreter.h"
+#include "interpreter/parser.h"
 
 #include <QByteArray>
 #include <QObject>
@@ -8,7 +8,7 @@
 #include <QTest>
 #include <QtLogging>
 
-#include "backend/number.h"
+#include "math/number.h"
 #include <expected>
 #include <optional>
 #include <string>

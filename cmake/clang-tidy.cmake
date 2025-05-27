@@ -7,13 +7,6 @@
 #             "${CLANG_TIDY}"
 # )
 
-option(CLANG_TIDY_ENABLE "Enable clang-tidy - this impacts compilation time." OFF)
-
-if (NOT CLANG_TIDY_ENABLE)
-    message(STATUS "clang-tidy NOT enabled. Set CLANG_TIDY_ENABLE to ON to enable.")
-    return()
-endif()
-
 if(CLANG_TIDY)
     # CLANG_TIDY is set to a truthy value, potentially by the user, so we should not override it.
     return()

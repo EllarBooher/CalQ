@@ -1,6 +1,6 @@
 #include "mathfunction.h"
 
-#include "backend/functions.h"
+#include "math/functions.h"
 #include <cmath>
 
 namespace calqmath

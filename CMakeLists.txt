@@ -13,6 +13,12 @@ project(CalQ LANGUAGES CXX)
 #    For example, if the folder is "/home/user/qt/6.9.0/gcc_64/lib/cmake/Qt6"
 #    then invoke CMake with "-DQT_DIR=/home/user/qt/6.9.0/gcc_64/lib/cmake/Qt6"
 #
+# Optional steps
+# a) Make sure CLANG_TIDY is on your PATH in a way that can be discovered by
+#    CMake. Alternatively, once configured, set the CLANG_TIDY cache variable
+#    to the path of your desired clang-tidy executable, and set CLANG_TIDY_ENABLE
+#    to ON.
+#
 ################################################################################
 
 # Prefix a prioritized QT install
@@ -32,50 +38,74 @@ set(vendor_include_dir "${CMAKE_SOURCE_DIR}/vendor")
 
 qt_standard_project_setup()
 
+################################################################################
+# CalQMath
+#   Math backend with underlying opaque number type used in calculations
+#   Also provides functions such as log and pow
+################################################################################
+
 qt_add_library(CalQMath
   STATIC
-  src/math/mathinterpreter.h     src/math/mathinterpreter.cpp
-  src/math/mathfunction.h        src/math/mathfunction.cpp
-  src/math/mathstatement.h       src/math/mathstatement.cpp
-  src/math/backend/number.h      src/math/backend/number.cpp
-  src/math/backend/numberimpl.h
-  src/math/backend/functions.h   src/math/backend/functions.cpp
-  src/math/lexer.h               src/math/lexer.cpp
-  src/math/parser.h              src/math/parser.cpp
+  src/math/number.h      src/math/number.cpp
+  src/math/numberimpl.h
+  src/math/functions.h   src/math/functions.cpp
 )
-set_property(TARGET CalQMath PROPERTY CXX_STANDARD 23)
-target_include_directories(CalQMath SYSTEM PUBLIC ${vendor_include_dir})
-target_link_libraries(CalQMath PUBLIC MPFR)
+set_target_properties(CalQMath PROPERTIES CXX_STANDARD 23)
+target_include_directories(CalQMath SYSTEM PRIVATE ${vendor_include_dir})
+target_include_directories(CalQMath PRIVATE src/)
+target_link_libraries(CalQMath PRIVATE MPFR)
 
-qt_add_executable(CalQ
+################################################################################
+# CalQInterpreter
+#   Interpretation of user input, to produce numeric results for the calculator
+################################################################################
+
+qt_add_library(CalQInterpreter
+  STATIC
+  src/interpreter/mathinterpreter.h     src/interpreter/mathinterpreter.cpp
+  src/interpreter/mathfunction.h        src/interpreter/mathfunction.cpp
+  src/interpreter/mathstatement.h       src/interpreter/mathstatement.cpp
+  src/interpreter/lexer.h               src/interpreter/lexer.cpp
+  src/interpreter/parser.h              src/interpreter/parser.cpp
+)
+set_target_properties(CalQInterpreter PROPERTIES CXX_STANDARD 23)
+target_include_directories(CalQInterpreter PRIVATE src/)
+target_link_libraries(CalQInterpreter PRIVATE CalQMath)
+
+################################################################################
+# CalQApp
+#   Calculator Qt GUI frontend
+################################################################################
+
+qt_add_executable(CalQApp
   WIN32 MACOSX_BUNDLE
-  src/main.cpp
-  src/mainwindow.cpp src/mainwindow.h src/mainwindow.ui
+  src/app/main.cpp
+  src/app/mainwindow.cpp src/app/mainwindow.h src/app/mainwindow.ui
 )
-set_property(TARGET CalQ PROPERTY CXX_STANDARD 23)
-target_link_libraries(CalQ
-  PRIVATE
-  Qt::Core
-  Qt::Widgets
-  CalQMath
-)
+set_target_properties(CalQApp PROPERTIES CXX_STANDARD 23 OUTPUT_NAME CalQ)
+target_include_directories(CalQApp PRIVATE src/)
+target_link_libraries(CalQApp PRIVATE Qt::Core Qt::Widgets CalQInterpreter)
+
+################################################################################
+# CalQTest
+#   Unit testing for all CalQ targets
+################################################################################
 
 qt_add_executable(CalQTest
   WIN32 MACOSX_BUNDLE
-  src/math/mathtest.cpp
+  src/test/mathtest.cpp
 )
-set_property(TARGET CalQTest PROPERTY CXX_STANDARD 23)
-target_link_libraries(CalQTest
-  PRIVATE
-  Qt::Core
-  Qt::Test
-  CalQMath
-)
+set_target_properties(CalQTest PROPERTIES CXX_STANDARD 23)
+target_link_libraries(CalQTest PRIVATE Qt::Core Qt::Test CalQInterpreter)
+target_include_directories(CalQTest PRIVATE src/)
 
+################################################################################
+
+option(CLANG_TIDY_ENABLE "Enable clang-tidy - this impacts compilation time." OFF)
 include(clang-tidy)
-if(CLANG_TIDY)
+if(CLANG_TIDY AND CLANG_TIDY_ENABLE)
   set_target_properties(
-    CalQ CalQMath # CalQTest
+    CalQMath CalQInterpreter CalQApp # CalQTest
     PROPERTIES
     CXX_CLANG_TIDY "${CLANG_TIDY}"
   )
@@ -83,14 +113,14 @@ endif()
 
 include(GNUInstallDirs)
 
-install(TARGETS CalQ CalQTest
+install(TARGETS CalQApp CalQTest
   BUNDLE  DESTINATION .
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
 qt_generate_deploy_app_script(
-  TARGET CalQ
+  TARGET CalQApp
   OUTPUT_SCRIPT deploy_script
   NO_UNSUPPORTED_PLATFORM_ERROR
 )
