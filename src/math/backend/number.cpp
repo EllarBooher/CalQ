@@ -174,13 +174,15 @@ auto format(ScalarStringDecomposition decomposition) -> std::string
         pattern = decomposition.negative ? "{0}{1}.{2}" : "{1}.{2}";
     }
 
+    auto const exponent{decomposition.exponent.value_or(0)};
+
     return std::vformat(
         pattern,
         std::make_format_args(
             NEGATIVE_SIGN,
             decomposition.preDecimal,
             decomposition.postDecimal,
-            decomposition.exponent.value_or(0)
+            exponent
         )
     );
 }
