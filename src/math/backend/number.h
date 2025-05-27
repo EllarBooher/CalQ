@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 
 namespace detail
@@ -55,9 +56,9 @@ public:
     friend Functions;
 
 private:
-    // explicit Scalar(detail::ScalarImpl&& impl);
+    explicit Scalar(detail::ScalarImpl&& impl);
     Scalar();
 
-    detail::ScalarImpl* m_impl;
+    std::unique_ptr<detail::ScalarImpl> m_impl;
 };
 } // namespace calqmath

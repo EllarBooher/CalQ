@@ -28,7 +28,7 @@ auto getBignumBackendPrecision(size_t const base) -> size_t
 
 Scalar::Scalar(std::string const& representation, uint16_t const base)
 {
-    m_impl = new detail::ScalarImpl(
+    m_impl = std::make_unique<detail::ScalarImpl>(
         mpf_class{representation, mpf_get_default_prec(), base}
     );
 }
@@ -41,7 +41,7 @@ auto Scalar::operator=(Scalar&& other) noexcept -> Scalar&
 auto Scalar::operator=(Scalar const& other) -> Scalar&
 {
     auto value = other.m_impl->value;
-    m_impl = new detail::ScalarImpl(std::move(value));
+    m_impl = std::make_unique<detail::ScalarImpl>(std::move(value));
     return *this;
 }
 
@@ -49,14 +49,7 @@ Scalar::Scalar(Scalar&& other) noexcept { *this = std::move(other); }
 
 Scalar::Scalar(Scalar const& other) { *this = other; }
 
-Scalar::~Scalar()
-{
-    if (m_impl == nullptr)
-    {
-        return;
-    }
-    delete m_impl;
-}
+Scalar::~Scalar() = default;
 
 auto Scalar::toMantissaExponent() const -> std::tuple<std::string, ptrdiff_t>
 {
@@ -212,39 +205,41 @@ auto Scalar::operator!=(Scalar const& rhs) const -> bool
 auto Scalar::operator+(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
-    result.m_impl =
-        new detail::ScalarImpl(this->m_impl->value + rhs.m_impl->value);
+    result.m_impl = std::make_unique<detail::ScalarImpl>(
+        this->m_impl->value + rhs.m_impl->value
+    );
     return result;
 }
 auto Scalar::operator-(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
-    result.m_impl =
-        new detail::ScalarImpl(this->m_impl->value - rhs.m_impl->value);
+    result.m_impl = std::make_unique<detail::ScalarImpl>(
+        this->m_impl->value - rhs.m_impl->value
+    );
     return result;
 }
 auto Scalar::operator*(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
-    result.m_impl =
-        new detail::ScalarImpl(this->m_impl->value * rhs.m_impl->value);
+    result.m_impl = std::make_unique<detail::ScalarImpl>(
+        this->m_impl->value * rhs.m_impl->value
+    );
     return result;
 }
 auto Scalar::operator/(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
-    result.m_impl =
-        new detail::ScalarImpl(this->m_impl->value / rhs.m_impl->value);
+    result.m_impl = std::make_unique<detail::ScalarImpl>(
+        this->m_impl->value / rhs.m_impl->value
+    );
     return result;
 }
 
-/*
 Scalar::Scalar(detail::ScalarImpl&& impl)
 {
-    m_impl = new detail::ScalarImpl(std::move(impl.value));
+    m_impl = std::make_unique<detail::ScalarImpl>(std::move(impl.value));
     impl.value = mpf_class{};
 }
-*/
 
 Scalar::Scalar() = default;
 } // namespace calqmath
