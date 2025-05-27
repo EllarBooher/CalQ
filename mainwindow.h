@@ -17,11 +17,13 @@ class MainWindow : public QMainWindow
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
-    ~MainWindow();
+    ~MainWindow() override;
 
 private slots:
     void onLineEnterPressed();
     void onLineTextUpdated(QString const&);
+    void setPreviewLabels(QString const& equation, QString const& result);
+    void resetPreviewLabels();
 
 private:
     std::unique_ptr<Ui::MainWindow> ui;

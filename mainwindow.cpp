@@ -30,6 +30,8 @@ MainWindow::MainWindow(QWidget *parent)
     m_messagesModel->setStringList(*m_messages);
 
     ui->listView->setModel(m_messagesModel.get());
+
+    resetPreviewLabels();
 }
 
 MainWindow::~MainWindow() = default;
@@ -75,6 +77,8 @@ void MainWindow::onLineEnterPressed()
 
     m_messagesModel->setStringList(*m_messages);
     ui->lineEdit->clear();
+
+    resetPreviewLabels();
 }
 
 void MainWindow::onLineTextUpdated(QString const& text)
@@ -86,9 +90,24 @@ void MainWindow::onLineTextUpdated(QString const& text)
 
     auto const messageStd = text.toStdString();
 
-    auto const prettified = "> " + MathInterpreter::prettify(messageStd);
-    ui->labelEquation->setText(QString::fromUtf8(prettified));
+    auto const equation =
+        QString::fromUtf8(MathInterpreter::prettify(messageStd));
+    auto const result =
+        mathResultToQString(MathInterpreter::interpret(messageStd));
 
-    auto const mathResult = MathInterpreter::interpret(messageStd);
-    ui->labelResult->setText(mathResultToQString(mathResult));
+    setPreviewLabels(equation, result);
+}
+
+void MainWindow::setPreviewLabels(
+    QString const& equation, QString const& result
+)
+{
+    ui->labelEquation->setText("> " + equation);
+    ui->labelResult->setText(result);
+}
+
+void MainWindow::resetPreviewLabels()
+{
+    ui->labelEquation->setText("> [Equation Preview]");
+    ui->labelResult->setText(" [Result Preview]");
 };
