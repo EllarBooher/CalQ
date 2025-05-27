@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "math/mathinterpreter.h"
 #include "ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -25,7 +26,26 @@ void MainWindow::onLineEnterPressed()
         return;
     }
 
-    m_messages->append(newMessage);
+    auto const mathResult =
+        MathInterpreter::interpret(newMessage.toStdString());
+
+    if (mathResult.has_value())
+    {
+        m_messages->append(QString::number(mathResult.value()));
+    }
+    else
+    {
+        switch (mathResult.error())
+        {
+        case MathInterpretationError::ParseError:
+            m_messages->append("Parse Error");
+            break;
+        case MathInterpretationError::EvaluationError:
+            m_messages->append("Evaluation Error");
+            break;
+        }
+    }
+
     m_messagesModel->setStringList(*m_messages);
     ui->lineEdit->clear();
 };
