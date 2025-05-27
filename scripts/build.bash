@@ -220,7 +220,7 @@ echo "
 ************* CONFIGURE *************
 "
 
-echo ">>> & $CMAKE \\
+echo ">>> $CMAKE \\
     -S $SRC_DIR \\
     -B $OUT_DIR \\
     --preset $PRESET \\"
@@ -276,7 +276,7 @@ else
     mkdir -p $INSTALL_DIR
 fi
 
-echo ">>> & $CMAKE \\
+echo ">>> $CMAKE \\
     --install $OUT_DIR \\
     --prefix $INSTALL_DIR \\
     --config $BUILD_CONFIG"
