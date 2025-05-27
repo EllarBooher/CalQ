@@ -3,6 +3,11 @@
     This configures, builds, and locally installs all targets for a given target platform.
     This script exists to allow for granular control of the build environment, since Qt requires tooling built for it.
     The default MinGW CMake preset will be used.
+
+.EXAMPLE
+    .\scripts\build.ps1 -QtDir C:\Qt\6.9.0 -CMake C:\Qt\Tools\CMake_64\bin\cmake.exe -BuildConfig Debug -TargetPlatform MinGW -ForceClean -PathPrefix "C:\Qt\Tools\Ninja;C:\Qt\Tools\mingw1310_64\bin"
+        When ran inside the project root CalQ, configures, builds, and installs targeting MinGW with Qt 6.9.0.
+        Note the argument for PathPrefix: This allows vcpkg to discover the generator/compilers if they are not on env:PATH.
 #>
 
 param (
@@ -14,18 +19,18 @@ param (
     $SrcDir = ".",
     [Parameter(Mandatory)]
     [string]
-    # Root directory of Qt installation, e.g. "C:/Qt".
-    $QtRootDir,
+    # Root directory of Qt installation, folder is named 'Qt' in default Windows installation.
+    $QtDir,
     [Parameter(Mandatory)]
     [string]
-    # Which installed semver of qt to use, e.g. "6.9.0".
-    $QtVersion,
+    # Path to CMake to use in operations. Consider using the copy of CMake you can install with Qt.
+    $CMake,
     [Parameter(Mandatory)]
     [string]
     # Which build config to use, e.g. Debug. Passed to CMake as --config $BuildConfig
     $BuildConfig,
     [switch]
-    # If the buildtree already exists, remove it. Otherwise, CMake --clean option is used. Leaving this off effectively performs a rebuild.
+    # If set and the build tree already exists, it will be wiped before building. In any other case, CMake clean target is executed.
     $ForceClean,
     [Parameter(Mandatory)]
     [ValidateSet("MinGW", "MSVC")]
@@ -35,6 +40,9 @@ param (
     [switch]
     # Log all commands instead of executing them.
     $DryRun,
+    [string]
+    # A path to prefix to env:PATH, to help discovery of tools.
+    $PathPrefix,
     [switch]
     # Suppress output of subprocesses
     $Quiet
@@ -48,9 +56,8 @@ function MyLog() {
     }
 }
 
-$preset = if($TargetPlatform -eq "MinGW") { "x64-windows-mingw" } else { "x64-windows-msvc"}
-if($OutDir -eq "")
-{
+$preset = if($TargetPlatform -eq "MinGW") { "x64-windows-mingw" } else { "x64-windows-msvc" }
+if($OutDir -eq "") {
     $OutDir = Join-Path "./build/" $preset
 }
 
@@ -60,58 +67,36 @@ if(-not $(Test-Path $SrcDir)) {
 }
 $SrcDir = Resolve-Path $SrcDir
 
-if(-not $(Test-Path $QtRootDir)) {
-    "Could not find Qt installed at '$QtRootDir' - Folder does not exist. Now exiting."
+if(-not $(Test-Path $QtDir)) {
+    "Could not find Qt installed at '$QtDir' - Folder does not exist. Now exiting."
     Exit
 }
 
-$ToolsDir = Join-Path (Resolve-Path $QtRootDir) "/Tools"
-if(-not $(Test-Path $ToolsDir)) {
-    "Could not find Qt tools at '$ToolsDir' - Folder does not exist. Now exiting."
-    Exit
-}
-
-if($TargetPlatform -eq "MinGW")
-{
-"Searching for Qt MinGW tooling, with regex pattern 'mingw.*_64'"
-$QtMingwTools = (Get-ChildItem $ToolsDir) -match "mingw.*_64" | Sort-Object -Descending
-"Found $($QtMingwTools.Length), sorted in descending order:"
-"    $QtMingwTools"
-"Choosing highest version number."
-
-$QtMingwBinDir = Join-Path $ToolsDir -ChildPath $QtMingwTools[0] | Join-Path -ChildPath "bin"
-$NinjaDir = Join-Path $ToolsDir "Ninja"
-$QtDir = Join-Path $QtRootDir -ChildPath $QtVersion | Join-Path -ChildPath "mingw_64";
-
-# MinGW bin directory needed for VCPKG CMake toolchain to find the compilers
-# Ninja dir needed so Qt compatible Ninja is used at build time
-# Qt directory needed for find_package(Qt6)
-# PSHome so powershell.exe is on path, a requirement of VCPKG CMake toolchain
-$Path = "$QtMingwBinDir;$NinjaDir;$QtDir;$PSHome"
+if($TargetPlatform -eq "MinGW") {
+    $QtDir = Join-Path $QtDir "mingw_64"
 } else {
-"Searching for Qt MSVC install dir, with regex pattern 'msvc.*_64'"
-$QtMSVCs = (Get-ChildItem (Join-Path $QtRootDir -ChildPath $QtVersion)) -match "msvc.*_64" | Sort-Object -Descending
-"Found $($QtMSVCs.Length), sorted in descending order:"
-"    $QtMSVCs"
-"Choosing highest version number."
-
-# MSVC compiler externally installed, there is no point in adding hints so we just add Qt.
-$QtDir = Join-Path $QtRootDir -ChildPath $QtVersion | Join-Path -ChildPath $QtMSVCs[0]
-
-# Qt directory needed for find_package(Qt6)
-# PSHome so powershell.exe is on path, a requirement of VCPKG CMake toolchain
-$Path = "$QtDir;$PSHome"
+    "Searching for Qt MSVC install dir, with regex pattern 'msvc.*_64'"
+    $QtVersions = (Get-ChildItem $QtDir) -match "msvc.*_64" | Sort-Object -Descending
+    "Found $($QtVersions.Length), sorted in descending order:"
+    "    $QtVersions"
+    "Choosing highest version number."
+    $QtDir = Join-Path $QtDir $QtVersions[0]
 }
 
-$CMakeBin = Join-Path $ToolsDir "/CMake_64/bin/cmake.exe"
+$Path = "$QtDir;$PSHome"
 
 # Separate if statement from the previous, so that the directory exists after being deleted.
 if(-not (Test-Path $OutDir))
 {
-    New-Item $OutDir -ItemType "Directory" | Out-Null
+    if($DryRun) {
+        "[-DryRun] New-Item $OutDir -ItemType `"Directory`" | Out-Null"
+    } else {
+        New-Item $OutDir -ItemType "Directory" | Out-Null
+    }
 }
 
 $OutDir = Resolve-Path $OutDir
+$CMake = Resolve-Path $CMake
 $InstallDir = Join-Path $OutDir -ChildPath "deploy" | Join-Path -ChildPath $BuildConfig;
 
 @"
@@ -121,19 +106,12 @@ Using:
     Install Directory  : $InstallDir
     Build Config       : $BuildConfig
     Qt                 : $QtDir
-"@
-if($TargetPlatform -eq "MinGW") {
-@"
-    Compile tooling    : $QtMingwToolDir
-"@
-}
-@"
-    Qt CMake           : $CMakeBin
-    env:PATH           : $Path
+    Qt CMake           : $CMake
+    env:PATH           : $PathPrefix;$Path;$env:PATH
 "@
 
 $OldEnvPath = $env:PATH
-$env:PATH = "$Path;$env:PATH"
+$env:PATH = "$PathPrefix;$Path;$env:PATH"
 
 try{
 ""
@@ -142,28 +120,44 @@ try{
 if($ForceClean -and -not (Get-ChildItem $OutDir).Length -eq 0)
 {
     "Output directory '$OutDir' already exists, -ForceClean enabled so deleting its contents."
-    Get-ChildItem $OutDir | Remove-Item -Recurse -Force
+    if($DryRun) {
+        "[-DryRun] Get-ChildItem $OutDir | Remove-Item -Recurse -Force"
+    } else {
+        Get-ChildItem $OutDir | Remove-Item -Recurse -Force
+    }
 } else {
-    $ExecutionContext.InvokeCommand.ExpandString(">>> & $CMakeBin ``
+    ">>> & $CMake ``
         --build $OutDir ``
-        --target clean")
-    & $CMakeBin --build $OutDir --target clean | MyLog
+        --target clean"
+    if($DryRun) {
+        "   -DryRun skipped"
+    } else {
+        & $CMake --build $OutDir --target clean | MyLog
+    }
 }
 
 ""
 "************* CONFIGURE *************"
 ""
 
-$ExecutionContext.InvokeCommand.ExpandString(">>> & $CMakeBin `
-    -S $SrcDir `
-    -B $OutDir `
-    --preset $preset")
-& $CMakeBin -S $SrcDir -B $OutDir --preset $preset | MyLog
+">>> & $CMake ``
+    -S $SrcDir ``
+    -B $OutDir ``
+    --preset $preset"
+if($DryRun) {
+    "   -DryRun skipped"
+} else {
+    & $CMake -S $SrcDir -B $OutDir --preset $preset | MyLog
+}
 if($LASTEXITCODE -ne 0)
 {
     ""
     "Configuring failed, deleting build directory and now exiting."
-    Get-ChildItem $OutDir | Remove-Item -Recurse -Force
+    if($DryRun) {
+        "[-DryRun] Get-ChildItem $OutDir | Remove-Item -Recurse -Force"
+    } else {
+        Get-ChildItem $OutDir | Remove-Item -Recurse -Force
+    }
     exit
 }
 
@@ -171,38 +165,58 @@ if($LASTEXITCODE -ne 0)
 "*************** BUILD ***************"
 ""
 
-$ExecutionContext.InvokeCommand.ExpandString(">>> & $CMakeBin --build $OutDir `
-    --target all --config $BuildConfig")
-& $CMakeBin --build $OutDir `
-    --config $BuildConfig | MyLog
-if($LASTEXITCODE -ne 0)
-{
-    ""
-    "Building failed, now exiting."
-    exit
+">>> & $CMake ``
+    --build $OutDir ``
+    --target all ``
+    --config $BuildConfig"
+if($DryRun) {
+    "   -DryRun skipped"
+} else {
+    & $CMake --build $OutDir `
+        --config $BuildConfig | MyLog
+    if($LASTEXITCODE -ne 0)
+    {
+        ""
+        "Building failed, now exiting."
+        exit
+    }
 }
 
 ""
 "************** INSTALL **************"
 ""
 
-if(Test-Path $InstallDir)
-{
+if(Test-Path $InstallDir) {
     "Install directory already exists, deleting."
-    Remove-Item $InstallDir -Recurse -Force
+    if($DryRun) {
+        "[-DryRun] Remove-Item $InstallDir -Recurse -Force"
+    } else {
+        Remove-Item $InstallDir -Recurse -Force
+    }
 }
-New-Item $InstallDir -ItemType "Directory" | Out-Null
+if($DryRun) {
+    "[-DryRun] New-Item $InstallDir -ItemType `"Directory`" | Out-Null"
+} else {
+    New-Item $InstallDir -ItemType "Directory" | Out-Null
+}
 
-& $CMakeBin `
+">>> & $CMake `
     --install $OutDir `
     --prefix $InstallDir `
-    --config $BuildConfig | MyLog
-
-if($LASTEXITCODE -ne 0)
-{
-    ""
-    "Installing failed, now exiting."
-    exit
+    --config $BuildConfig | MyLog"
+if($DryRun) {
+    "   -DryRun skipped"
+} else {
+    & $CMake `
+        --install $OutDir `
+        --prefix $InstallDir `
+        --config $BuildConfig | MyLog
+    if($LASTEXITCODE -ne 0)
+    {
+        ""
+        "Installing failed, now exiting."
+        exit
+    }
 }
 
 ""
