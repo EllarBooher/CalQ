@@ -27,7 +27,7 @@ private slots:
 
     // NOLINTNEXTLINE (readability-redundant-access-specifiers)
 private:
-    std::unique_ptr<Ui::MainWindow> ui;
+    std::unique_ptr<Ui::MainWindow> m_ui;
     std::unique_ptr<QStringList> m_messages;
     std::unique_ptr<QStringListModel> m_messagesModel;
 };

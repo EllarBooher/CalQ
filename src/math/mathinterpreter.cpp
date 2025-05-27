@@ -121,16 +121,16 @@ auto MathInterpreter::prettify(std::string const& rawInput) -> std::string
 struct MathStatementParser
 {
     explicit MathStatementParser(std::string const& rawInput)
-        : trimmed(trim(rawInput))
+        : m_trimmed(trim(rawInput))
     {
     }
 
     auto execute() -> std::optional<MathStatement>
     {
         IncrementResult incrementResult{IncrementResult::Continue};
-        assert(statementDepthStack.empty());
-        rootStatement = {};
-        statementDepthStack.push(&rootStatement);
+        assert(m_statementDepthStack.empty());
+        m_rootStatement = {};
+        m_statementDepthStack.push(&m_rootStatement);
 
         while (incrementResult == IncrementResult::Continue)
         {
@@ -188,21 +188,22 @@ private:
     auto increment() -> IncrementResult
     {
         assert(
-            !statementDepthStack.empty() && statementDepthStack.top() != nullptr
+            !m_statementDepthStack.empty()
+            && m_statementDepthStack.top() != nullptr
         );
 
-        if (!statementDepthStack.top()->valid())
+        if (!m_statementDepthStack.top()->valid())
         {
             return IncrementResult::Error;
         }
 
-        if (index >= trimmed.size())
+        if (m_index >= m_trimmed.size())
         {
             return IncrementResult::Finished;
         }
 
-        size_t const currentIndex = index++;
-        char const currentChar = trimmed.at(currentIndex);
+        size_t const currentIndex = m_index++;
+        char const currentChar = m_trimmed.at(currentIndex);
         auto const typeResult = parseCharacter(currentChar);
         if (!typeResult.has_value())
         {
@@ -223,11 +224,11 @@ private:
                 // We cannot close if we have no remaining open statements.
                 // At the bottom of the stack is the first statement, and it has
                 // no open Parenthesis so we cannot pop that either.
-                if (statementDepthStack.size() <= 1)
+                if (m_statementDepthStack.size() <= 1)
                 {
                     return std::nullopt;
                 }
-                statementDepthStack.pop();
+                m_statementDepthStack.pop();
                 return ParseStateClosed{};
             default:
                 return std::nullopt;
@@ -246,9 +247,10 @@ private:
                 };
             case StatementCharacterType::OpenParenthesis:
             {
-                auto& topLevelStatement = *statementDepthStack.top();
-                statementDepthStack.push(&topLevelStatement.reset(MathStatement{
-                }));
+                auto& topLevelStatement = *m_statementDepthStack.top();
+                m_statementDepthStack.push(
+                    &topLevelStatement.reset(MathStatement{})
+                );
                 return ParseStateOpened();
             }
             default:
@@ -270,8 +272,8 @@ private:
             case StatementCharacterType::OpenParenthesis:
             {
                 auto* deeperStatement =
-                    &statementDepthStack.top()->appendStatement(state.mathOp);
-                statementDepthStack.push(deeperStatement);
+                    &m_statementDepthStack.top()->appendStatement(state.mathOp);
+                m_statementDepthStack.push(deeperStatement);
 
                 return ParseStateOpened{};
             }
@@ -301,12 +303,12 @@ private:
             case StatementCharacterType::MathOperator:
             case StatementCharacterType::CloseParenthesis:
             {
-                double const number = std::stod(trimmed.substr(
+                double const number = std::stod(m_trimmed.substr(
                     state.numberStartIndex,
                     currentIndex - state.numberStartIndex
                 ));
 
-                auto& topLevelStatement = *statementDepthStack.top();
+                auto& topLevelStatement = *m_statementDepthStack.top();
                 if (!topLevelStatement.empty() && state.mathOp == std::nullopt)
                 {
                     // This case occurs when the statement looks like (NUMBER1
@@ -332,11 +334,11 @@ private:
 
                 assert(type == StatementCharacterType::CloseParenthesis);
 
-                if (statementDepthStack.size() <= 1)
+                if (m_statementDepthStack.size() <= 1)
                 {
                     return std::nullopt;
                 }
-                statementDepthStack.pop();
+                m_statementDepthStack.pop();
                 return ParseStateClosed{};
             }
             default:
@@ -346,12 +348,12 @@ private:
         }};
 
         std::optional<ParseState> const nextState =
-            std::visit(incrementStateVisitor, state);
+            std::visit(incrementStateVisitor, m_state);
         if (!nextState.has_value())
         {
             return IncrementResult::Error;
         }
-        state = nextState.value();
+        m_state = nextState.value();
 
         return IncrementResult::Continue;
     }
@@ -366,7 +368,7 @@ private:
      */
     auto finish() -> std::optional<MathStatement>
     {
-        if (statementDepthStack.size() != 1)
+        if (m_statementDepthStack.size() != 1)
         {
             return std::nullopt;
         }
@@ -378,11 +380,11 @@ private:
         {
             try
             {
-                double const number = std::stod(trimmed.substr(
-                    state.numberStartIndex, index - state.numberStartIndex
+                double const number = std::stod(m_trimmed.substr(
+                    state.numberStartIndex, m_index - state.numberStartIndex
                 ));
 
-                auto& topLevelStatement = *statementDepthStack.top();
+                auto& topLevelStatement = *m_statementDepthStack.top();
                 if (!topLevelStatement.empty() && state.mathOp == std::nullopt)
                 {
                     // This case occurs when the statement looks like
@@ -415,24 +417,24 @@ private:
             [&](ParseStateOperator const&) -> bool { return false; },
         }};
 
-        bool const finishValid = std::visit(finishVisitor, state);
+        bool const finishValid = std::visit(finishVisitor, m_state);
 
-        if (!finishValid || !statementDepthStack.top()->valid())
+        if (!finishValid || !m_statementDepthStack.top()->valid())
         {
             return std::nullopt;
         }
 
-        return std::move(*statementDepthStack.top());
+        return std::move(*m_statementDepthStack.top());
     }
 
-    std::string const trimmed;
+    std::string const m_trimmed;
 
     /**
      * We store the root-level statement as a value that gets default
-     * destructed. statementDepthStack[0] contains a pointer to rootStatement,
+     * destructed. statementDepthStack[0] contains a pointer to m_rootStatement,
      * and should generally be modified there.
      */
-    MathStatement rootStatement;
+    MathStatement m_rootStatement;
 
     /**
      * A MathStatement is a tree-like structure, where individual terms can be
@@ -443,10 +445,10 @@ private:
      * index 0. Keeping this pointer to rootStatement simplifies
      * some of the access logic.
      */
-    std::stack<MathStatement*> statementDepthStack;
+    std::stack<MathStatement*> m_statementDepthStack;
 
-    ParseState state{ParseStateOpened{}};
-    size_t index{0};
+    ParseState m_state{ParseStateOpened{}};
+    size_t m_index{0};
 };
 
 auto MathInterpreter::parse(std::string const& rawInput)

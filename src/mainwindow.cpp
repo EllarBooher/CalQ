@@ -12,14 +12,19 @@
 #include <expected>
 #include <memory>
 
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
+    , m_ui(new Ui::MainWindow)
 {
-    ui->setupUi(this);
-    connect(ui->lineEdit, &QLineEdit::returnPressed, this, &MainWindow::onLineEnterPressed);
+    m_ui->setupUi(this);
     connect(
-        ui->lineEdit,
+        m_ui->lineEdit,
+        &QLineEdit::returnPressed,
+        this,
+        &MainWindow::onLineEnterPressed
+    );
+    connect(
+        m_ui->lineEdit,
         &QLineEdit::textEdited,
         this,
         &MainWindow::onLineTextUpdated
@@ -29,7 +34,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_messagesModel = std::make_unique<QStringListModel>();
     m_messagesModel->setStringList(*m_messages);
 
-    ui->listView->setModel(m_messagesModel.get());
+    m_ui->listView->setModel(m_messagesModel.get());
 
     resetPreviewLabels();
 }
@@ -61,7 +66,7 @@ auto mathResultToQString(
 
 void MainWindow::onLineEnterPressed()
 {
-    QString const newMessage = ui->lineEdit->text().trimmed();
+    QString const newMessage = m_ui->lineEdit->text().trimmed();
     if(newMessage.isEmpty())
     {
         return;
@@ -76,7 +81,7 @@ void MainWindow::onLineEnterPressed()
     m_messages->append(mathResultToQString(mathResult));
 
     m_messagesModel->setStringList(*m_messages);
-    ui->lineEdit->clear();
+    m_ui->lineEdit->clear();
 
     resetPreviewLabels();
 }
@@ -102,12 +107,12 @@ void MainWindow::setPreviewLabels(
     QString const& equation, QString const& result
 )
 {
-    ui->labelEquation->setText("> " + equation);
-    ui->labelResult->setText(result);
+    m_ui->labelEquation->setText("> " + equation);
+    m_ui->labelResult->setText(result);
 }
 
 void MainWindow::resetPreviewLabels()
 {
-    ui->labelEquation->setText("> [Equation Preview]");
-    ui->labelResult->setText(" [Result Preview]");
+    m_ui->labelEquation->setText("> [Equation Preview]");
+    m_ui->labelResult->setText(" [Result Preview]");
 };

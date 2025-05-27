@@ -32,11 +32,11 @@ class MathStatement
 public:
     MathStatement() = default;
 
-    auto operator=(MathStatement const&) -> MathStatement&;
-    MathStatement(MathStatement const&);
+    auto operator=(MathStatement const& other) -> MathStatement&;
+    MathStatement(MathStatement const& other);
 
-    auto operator=(MathStatement&&) noexcept -> MathStatement&;
-    MathStatement(MathStatement&&) noexcept;
+    auto operator=(MathStatement&& other) noexcept -> MathStatement&;
+    MathStatement(MathStatement&& other) noexcept;
 
     [[nodiscard]] auto valid() const -> bool
     {
