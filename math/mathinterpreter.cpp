@@ -60,6 +60,11 @@ auto trim(std::string const& rawInput) -> std::string
     return output;
 }
 
+std::string MathInterpreter::prettify(std::string const& rawInput)
+{
+    return trim(rawInput);
+}
+
 auto MathInterpreter::parse(std::string const& rawInput)
     -> std::optional<MathStatement>
 {

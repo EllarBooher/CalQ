@@ -26,8 +26,13 @@ void MainWindow::onLineEnterPressed()
         return;
     }
 
-    auto const mathResult =
-        MathInterpreter::interpret(newMessage.toStdString());
+    auto const messageStd = newMessage.toStdString();
+
+    auto const mathResult = MathInterpreter::interpret(messageStd);
+
+    m_messages->append(
+        ">" + QString::fromUtf8(MathInterpreter::prettify(messageStd))
+    );
 
     if (mathResult.has_value())
     {

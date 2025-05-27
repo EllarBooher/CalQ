@@ -57,17 +57,29 @@ auto operator==(MathStatement const& lhs, MathStatement const& rhs) -> bool;
 class MathInterpreter
 {
 public:
+    /**
+     * @brief prettify - Converts the input string into a prettier form.
+     *
+     * Any string can be converted, and this method does not check for being a
+     * valid mathematical statement. This is for echoing user input in a
+     * standardized form.
+     *
+     * @param rawInput - The string to prettify.
+     * @return Returns the string, with whitespace removed.
+     */
+    static auto prettify(std::string const& rawInput) -> std::string;
+
     static auto parse(std::string const& rawInput)
         -> std::optional<MathStatement>;
     static auto evaluate(MathStatement const& statement)
         -> std::optional<double>;
 
     /**
-     * Chains all methods, to get from raw user input to the final mathematical
-     * result or error.
-     *
      * @brief interpret - Parses user input as a mathematical statement and
      * returns the evaluated answer.
+     *
+     * Chains all methods, to get from raw user input to the final mathematical
+     * result or error.
      *
      * @param rawInput - The stringified equation.
      */
