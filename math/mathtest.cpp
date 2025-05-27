@@ -141,6 +141,33 @@ void TestMathInterpreter::test()
         QCOMPARE(MathInterpreter::parse(input), output);
     }
 
+    std::vector<std::tuple<std::vector<std::string>, MathStatement>> const
+        whitespaceParseCases{
+            {{"0-1+2/3*4",
+              " 0 - 1 + 2 / 3 * 4 ",
+              "   0   -  1  +  2  /  3  *  4  ",
+              "0-1  +2/3  *4",
+              "0  -1+2  /3*4",
+              "  0-1  +2/3*4",
+              "0  -1+2/3*4  ",
+              "\n0\n-\n1\n+\n2\n/\n3\n*\n4\n"},
+             MathStatement{
+                 .terms = {0.0, 1.0, 2.0, 3.0, 4.0},
+                 .operators =
+                     {MathOp::Minus,
+                      MathOp::Plus,
+                      MathOp::Divide,
+                      MathOp::Multiply},
+             }}
+        };
+    for (auto& [inputs, output] : whitespaceParseCases)
+    {
+        for (auto& input : inputs)
+        {
+            QCOMPARE(MathInterpreter::parse(input), output);
+        }
+    }
+
     std::vector<std::tuple<MathStatement, std::optional<double>>> const
         evaluateTestCases{
             {MathStatement{.terms = {0.0}, .operators = {MathOp::Plus}},

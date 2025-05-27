@@ -53,6 +53,13 @@ auto parseOperator(char const character) -> std::optional<MathOp>
     return std::nullopt;
 }
 
+auto trim(std::string const& rawInput) -> std::string
+{
+    std::string output = rawInput;
+    std::erase_if(output, isspace);
+    return output;
+}
+
 auto MathInterpreter::parse(std::string const& rawInput)
     -> std::optional<MathStatement>
 {
@@ -70,20 +77,22 @@ auto MathInterpreter::parse(std::string const& rawInput)
         double term;
     };
 
+    std::string const trimmed = trim(rawInput);
+
     std::vector<double> terms{};
     std::vector<MathOp> operators;
 
     ParseState state = ParseState::None;
     size_t numberStartIndex = 0;
     size_t index = 0;
-    while (index < rawInput.size())
+    while (index < trimmed.size())
     {
         assert(
             operators.size() == terms.size()
             || (operators.empty() && terms.empty())
         );
 
-        char const currentChar = rawInput.at(index);
+        char const currentChar = trimmed.at(index);
         auto const typeResult = parseCharacter(currentChar);
         if (!typeResult.has_value())
         {
@@ -113,7 +122,7 @@ auto MathInterpreter::parse(std::string const& rawInput)
             {
             case StatementCharacterType::MathOperator:
                 terms.push_back(std::stod(
-                    rawInput.substr(numberStartIndex, index - numberStartIndex)
+                    trimmed.substr(numberStartIndex, index - numberStartIndex)
                 ));
                 operators.push_back(parseOperator(currentChar).value());
                 state = ParseState::Operator;
@@ -145,7 +154,7 @@ auto MathInterpreter::parse(std::string const& rawInput)
             {
             case StatementCharacterType::MathOperator:
                 terms.push_back(std::stod(
-                    rawInput.substr(numberStartIndex, index - numberStartIndex)
+                    trimmed.substr(numberStartIndex, index - numberStartIndex)
                 ));
                 operators.push_back(parseOperator(currentChar).value());
                 state = ParseState::Operator;
@@ -167,7 +176,7 @@ auto MathInterpreter::parse(std::string const& rawInput)
         try
         {
             terms.push_back(std::stod(
-                rawInput.substr(numberStartIndex, index - numberStartIndex)
+                trimmed.substr(numberStartIndex, index - numberStartIndex)
             ));
         }
         catch (std::invalid_argument const& e)
