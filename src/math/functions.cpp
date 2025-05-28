@@ -1,16 +1,25 @@
 #include "functions.h"
 
-#include "mpreal.h"
 #include "numberimpl.h"
-
-// We almost don't need mpreal, it covers a lot of functionality we probably
-// won't need such as conversions from all C++ integral types.
 
 #define WRAP_UNARY_SCALAR(func, arg1)                                          \
     auto Functions::func(Scalar const& arg1) -> Scalar                         \
     {                                                                          \
-        auto result = mpfr::func(arg1.m_impl->value);                          \
-        return Scalar{detail::ScalarImpl(std::move(result))};                  \
+        Scalar result{};                                                       \
+        mpfr_##func(                                                           \
+            result.m_impl->value,                                              \
+            arg1.m_impl->value,                                                \
+            mpfr_get_default_rounding_mode()                                   \
+        );                                                                     \
+        return result;                                                         \
+    }
+
+#define WRAP_UNARY_SCALAR_NO_ROUND(func, arg1)                                 \
+    auto Functions::func(Scalar const& arg1) -> Scalar                         \
+    {                                                                          \
+        Scalar result{};                                                       \
+        mpfr_##func(result.m_impl->value, arg1.m_impl->value);                 \
+        return result;                                                         \
     }
 
 #define WRAP_BINARY_SCALAR(func, arg1, arg2)                                   \
@@ -32,15 +41,16 @@ WRAP_UNARY_SCALAR(abs, argument);
  * rint_* is not needed at this time.
  */
 
-WRAP_UNARY_SCALAR(ceil, argument);
-WRAP_UNARY_SCALAR(floor, argument);
-WRAP_UNARY_SCALAR(round, argument);
+WRAP_UNARY_SCALAR_NO_ROUND(ceil, argument);
+WRAP_UNARY_SCALAR_NO_ROUND(floor, argument);
+WRAP_UNARY_SCALAR_NO_ROUND(round, argument);
 auto Functions::roundeven(Scalar const& argument) -> Scalar
 {
-    auto result = mpfr::rint(argument.m_impl->value, MPFR_RNDN);
-    return Scalar{detail::ScalarImpl(std::move(result))};
+    Scalar result{};
+    mpfr_rint(result.m_impl->value, argument.m_impl->value, MPFR_RNDN);
+    return result;
 }
-WRAP_UNARY_SCALAR(trunc, argument);
+WRAP_UNARY_SCALAR_NO_ROUND(trunc, argument);
 
 WRAP_UNARY_SCALAR(sqrt, argument);
 WRAP_UNARY_SCALAR(cbrt, argument);
@@ -52,21 +62,18 @@ WRAP_UNARY_SCALAR(log2, argument);
 
 auto Functions::logn(Scalar const& base, Scalar const& argument) -> Scalar
 {
-    Scalar result{detail::ScalarImpl{mpfr::mpreal{
-        0,
-        std::max(
-            base.m_impl->value.getPrecision(),
-            argument.m_impl->value.getPrecision()
-        )
-    }}};
+    auto const precision{std::max(
+        mpfr_get_prec(base.m_impl->value), mpfr_get_prec(argument.m_impl->value)
+    )};
+    Scalar result{detail::ScalarImpl{precision}};
 
-    auto numerator = mpfr::log(argument.m_impl->value);
-    auto denominator = mpfr::log(base.m_impl->value);
+    auto numerator = log(argument);
+    auto denominator = log(base);
 
     mpfr_div(
-        result.m_impl->value.mpfr_ptr(),
-        numerator.mpfr_srcptr(),
-        denominator.mpfr_srcptr(),
+        result.m_impl->value,
+        numerator.m_impl->value,
+        denominator.m_impl->value,
         mpfr_get_default_rounding_mode()
     );
 

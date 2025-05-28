@@ -1,12 +1,13 @@
 #include "number.h"
 
-#include "mpreal.h"
+#include "mpfr.h"
 #include "numberimpl.h"
 #include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <format>
 #include <numbers>
+#include <optional>
 #include <utility>
 
 namespace calqmath
@@ -17,23 +18,19 @@ void initBignumBackend()
     // performing a lot of calculations. Most user input statements will have a
     // couple dozen calculations at most.
     auto constexpr DEFAULT_MINIMUM_PRECISION{500};
-    mpfr::mpreal::set_default_prec(
-        static_cast<mpfr_prec_t>(DEFAULT_MINIMUM_PRECISION)
-    );
+    mpfr_set_default_prec(static_cast<mpfr_prec_t>(DEFAULT_MINIMUM_PRECISION));
 }
 
 auto getBignumBackendPrecision(size_t const base) -> size_t
 {
     assert(base > 0);
-    return static_cast<size_t>(mpfr::mpreal::get_default_prec())
-         * std::numbers::ln2 / std::log(base);
+    return static_cast<size_t>(mpfr_get_default_prec()) * std::numbers::ln2
+         / std::log(base);
 }
 
 Scalar::Scalar(std::string const& representation, uint16_t const base)
 {
-    m_impl = std::make_unique<detail::ScalarImpl>(
-        mpfr::mpreal{representation, mpfr::mpreal::get_default_prec(), base}
-    );
+    m_impl = std::make_unique<detail::ScalarImpl>(representation, base);
 }
 
 auto Scalar::operator=(Scalar&& other) noexcept -> Scalar&
@@ -43,8 +40,7 @@ auto Scalar::operator=(Scalar&& other) noexcept -> Scalar&
 }
 auto Scalar::operator=(Scalar const& other) -> Scalar&
 {
-    auto value = other.m_impl->value;
-    m_impl = std::make_unique<detail::ScalarImpl>(std::move(value));
+    m_impl = std::make_unique<detail::ScalarImpl>(other.m_impl->value);
     return *this;
 }
 
@@ -67,8 +63,8 @@ auto Scalar::toMantissaExponent() const -> std::tuple<std::string, ptrdiff_t>
         &exponent,
         DEFAULT_BASE,
         PRECISION_DIGITS,
-        m_impl->value.mpfr_srcptr(),
-        mpfr::mpreal::get_default_rnd()
+        m_impl->value,
+        mpfr_get_default_rounding_mode()
     );
 
     std::get<0>(result) = pMantissa;
@@ -217,56 +213,73 @@ auto Scalar::toString() const -> std::string
 
 auto Scalar::operator==(Scalar const& rhs) const -> bool
 {
-    return m_impl->value == rhs.m_impl->value;
+    return mpfr_equal_p(m_impl->value, rhs.m_impl->value) != 0;
 }
 
 auto Scalar::operator!=(Scalar const& rhs) const -> bool
 {
-    return m_impl->value != rhs.m_impl->value;
+    return !(*this == rhs);
 }
 
 auto Scalar::operator+(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
-    result.m_impl->value = this->m_impl->value;
-    result.m_impl->value += rhs.m_impl->value;
+    mpfr_add(
+        result.m_impl->value,
+        m_impl->value,
+        rhs.m_impl->value,
+        mpfr_get_default_rounding_mode()
+    );
     return result;
 }
 
 auto Scalar::operator-(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
-    result.m_impl->value = this->m_impl->value;
-    result.m_impl->value -= rhs.m_impl->value;
+    mpfr_sub(
+        result.m_impl->value,
+        m_impl->value,
+        rhs.m_impl->value,
+        mpfr_get_default_rounding_mode()
+    );
     return result;
 }
 
 auto Scalar::operator*(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
-    result.m_impl->value = this->m_impl->value;
-    result.m_impl->value *= rhs.m_impl->value;
+    mpfr_mul(
+        result.m_impl->value,
+        m_impl->value,
+        rhs.m_impl->value,
+        mpfr_get_default_rounding_mode()
+    );
     return result;
 }
 auto Scalar::operator/(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
-    result.m_impl->value = this->m_impl->value;
-    result.m_impl->value /= rhs.m_impl->value;
+    mpfr_div(
+        result.m_impl->value,
+        m_impl->value,
+        rhs.m_impl->value,
+        mpfr_get_default_rounding_mode()
+    );
     return result;
 }
 
 auto Scalar::operator-() const -> Scalar
 {
     Scalar result{};
-    result.m_impl->value = -this->m_impl->value;
+    mpfr_neg(
+        result.m_impl->value, m_impl->value, mpfr_get_default_rounding_mode()
+    );
     return result;
 }
 
 Scalar::Scalar(detail::ScalarImpl&& impl)
 {
-    m_impl = std::make_unique<detail::ScalarImpl>(std::move(impl.value));
-    impl.value = mpfr::mpreal{};
+    m_impl = std::make_unique<detail::ScalarImpl>(std::move(impl));
 }
 
 } // namespace calqmath
