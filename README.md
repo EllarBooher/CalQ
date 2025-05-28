@@ -6,8 +6,7 @@ and I saw it as a good opportunity to practice creating a graphical application 
 
 ## Features
 
-- Fixed but very high precision caclulations, using arbitrary precision numbers
-  - Uses GNU's [MPFR](https://www.mpfr.org/) which is build on [GMP](https://gmplib.org/)
+- Fixed but very high precision calculations
 - Interprets user text input as a mathematical expression and processes into a numeric result
 - Log of previous results and their input strings
 - Various unary elementary functions such as `sin`, `pow`, `log`, etc
@@ -106,3 +105,9 @@ cmake --build ".\build\x64-windows-mingw" --config Debug
 cmake --install ".\build\x64-windows-mingw" --prefix "C:\absolute\path\to\install\directory\" --config Debug
 # Installed binaries will be in /absolute/path/to/install/directory/%CONFIG%/bin
 ```
+
+## Dependencies
+
+- [Qt](https://www.qt.io/) is available under LGPLv3
+- [MPFR](https://www.mpfr.org/) is available under LGPLv3
+- [GMP](https://gmplib.org/) is available under LGPLv3
