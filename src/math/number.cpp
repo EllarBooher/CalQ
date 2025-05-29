@@ -2,7 +2,6 @@
 
 #include "mpfr.h"
 #include "numberimpl.h"
-#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -25,7 +24,8 @@ void initBignumBackend()
 auto getBignumBackendPrecision(size_t const base) -> size_t
 {
     assert(base > 0);
-    auto const precision{detail::clampPrecision(mpfr_get_default_prec())};
+    auto const precision{detail::clampPrecisionFromMPFR(mpfr_get_default_prec())
+    };
     return precision * std::numbers::ln2 / std::log(base);
 }
 
@@ -40,10 +40,9 @@ auto Scalar::precisionMax() -> size_t
 
 Scalar::Scalar(size_t precision)
 {
-    assert(std::cmp_less(precision, std::numeric_limits<mpfr_prec_t>::max()));
-    m_impl =
-        std::make_unique<detail::ScalarImpl>(static_cast<mpfr_prec_t>(precision)
-        );
+    m_impl = std::make_unique<detail::ScalarImpl>(
+        detail::clampPrecisionForMPFR(precision)
+    );
 }
 
 auto Scalar::baseMin() -> size_t { return detail::ScalarImpl::MIN_BASE; }
@@ -51,8 +50,12 @@ auto Scalar::baseMax() -> size_t { return detail::ScalarImpl::MAX_BASE; }
 
 Scalar::Scalar(std::string const& representation, size_t const base)
 {
-    m_impl = std::make_unique<detail::ScalarImpl>(
-        representation, std::clamp(base, baseMin(), baseMax())
+    m_impl = std::make_unique<detail::ScalarImpl>();
+    mpfr_set_str(
+        m_impl->value,
+        representation.c_str(),
+        detail::clampBaseForMPFR(base),
+        mpfr_get_default_rounding_mode()
     );
 }
 
@@ -63,7 +66,12 @@ auto Scalar::operator=(Scalar&& other) noexcept -> Scalar&
 }
 auto Scalar::operator=(Scalar const& other) -> Scalar&
 {
-    m_impl = std::make_unique<detail::ScalarImpl>(other.m_impl->value);
+    m_impl =
+        std::make_unique<detail::ScalarImpl>(mpfr_get_prec(other.m_impl->value)
+        );
+    mpfr_set(
+        m_impl->value, other.m_impl->value, mpfr_get_default_rounding_mode()
+    );
     return *this;
 }
 
@@ -98,6 +106,30 @@ auto Scalar::toMantissaExponent() const -> std::tuple<std::string, ptrdiff_t>
 
     mpfr_free_str(pMantissa);
 
+    return result;
+}
+
+auto Scalar::nan() -> Scalar
+{
+    Scalar result{};
+    result.m_impl =
+        std::make_unique<detail::ScalarImpl>(detail::ScalarImpl::nan());
+    return result;
+}
+
+auto Scalar::positiveInf() -> Scalar
+{
+    Scalar result{};
+    result.m_impl =
+        std::make_unique<detail::ScalarImpl>(detail::ScalarImpl::positiveInf());
+    return result;
+}
+
+auto Scalar::negativeInf() -> Scalar
+{
+    Scalar result{};
+    result.m_impl =
+        std::make_unique<detail::ScalarImpl>(detail::ScalarImpl::negativeInf());
     return result;
 }
 
@@ -231,9 +263,44 @@ auto format(ScalarStringDecomposition decomposition) -> std::string
 
 auto Scalar::toString() const -> std::string
 {
+    if (mpfr_nan_p(m_impl->value) != 0)
+    {
+        return NAN_REPRESENTATION;
+    }
+
+    if (mpfr_inf_p(m_impl->value) != 0)
+    {
+        auto const sgn{sign()};
+        assert(sgn == Sign::NEGATIVE || sgn == Sign::POSITIVE);
+        if (sgn == Sign::NEGATIVE)
+        {
+            return NEGATIVE_INFINITY_REPRESENTATION;
+        }
+
+        return POSITIVE_INFINITY_REPRESENTATION;
+    }
+
     auto decomposition = decompose(*this);
     return format(decomposition);
 }
+
+auto Scalar::sign() const -> Sign
+{
+    auto const sgn = mpfr_sgn(m_impl->value);
+    if (sgn > 0)
+    {
+        return Sign::POSITIVE;
+    }
+
+    if (sgn == 0)
+    {
+        return Sign::ZERO;
+    }
+
+    return Sign::NEGATIVE;
+}
+
+auto Scalar::isNaN() const -> bool { return mpfr_nan_p(m_impl->value); }
 
 auto Scalar::operator==(Scalar const& rhs) const -> bool
 {

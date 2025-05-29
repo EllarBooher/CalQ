@@ -65,7 +65,7 @@ auto Functions::logn(Scalar const& base, Scalar const& argument) -> Scalar
     auto const precision{std::max(
         mpfr_get_prec(base.m_impl->value), mpfr_get_prec(argument.m_impl->value)
     )};
-    Scalar result{detail::clampPrecision(precision)};
+    Scalar result{detail::clampPrecisionFromMPFR(precision)};
 
     auto numerator = log(argument);
     auto denominator = log(base);

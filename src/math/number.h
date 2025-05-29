@@ -18,6 +18,13 @@ size_t constexpr DEFAULT_BASE = 10;
 auto getBignumBackendPrecision(size_t base = DEFAULT_BASE) -> size_t;
 void initBignumBackend();
 
+enum class Sign : uint8_t
+{
+    NEGATIVE,
+    ZERO,
+    POSITIVE,
+};
+
 class Scalar
 {
 public:
@@ -61,7 +68,20 @@ public:
      */
     [[nodiscard]] auto toMantissaExponent() const
         -> std::tuple<std::string, ptrdiff_t>;
+
+    static auto nan() -> Scalar;
+    static auto positiveInf() -> Scalar;
+    static auto negativeInf() -> Scalar;
+
+    static constexpr char const* NAN_REPRESENTATION = "NaN";
+    static constexpr char const* POSITIVE_INFINITY_REPRESENTATION = "Inf";
+    static constexpr char const* NEGATIVE_INFINITY_REPRESENTATION = "-Inf";
+
     [[nodiscard]] auto toString() const -> std::string;
+
+    [[nodiscard]] auto sign() const -> Sign;
+
+    [[nodiscard]] auto isNaN() const -> bool;
 
     auto operator==(Scalar const& rhs) const -> bool;
     auto operator!=(Scalar const& rhs) const -> bool;

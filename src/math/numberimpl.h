@@ -1,8 +1,7 @@
 #pragma once
 
 #include "mpfr.h"
-#include <cstdint>
-#include <string>
+#include <cassert>
 #include <utility>
 
 // Do not include this file outside of the math module.
@@ -21,28 +20,15 @@ public:
     static constexpr size_t MIN_PRECISION = MPFR_PREC_MIN;
     static constexpr size_t MAX_PRECISION = MPFR_PREC_MAX;
 
-    ScalarImpl(std::string const& representation, uint16_t base)
+    ScalarImpl(ScalarImpl&& source) noexcept
     {
-        mpfr_init2(value, mpfr_get_default_prec());
-        mpfr_set_str(
-            value,
-            representation.c_str(),
-            int32_t{base},
-            mpfr_get_default_rounding_mode()
-        );
+        value->_mpfr_d = nullptr;
+        mpfr_swap(value, source.value);
     }
 
-    ScalarImpl(mpfr_t const& source)
-    {
-        mpfr_init2(value, mpfr_get_prec(source));
-        mpfr_set(value, source, mpfr_get_default_rounding_mode());
-    }
-
-    ScalarImpl(mpfr_t&& source)
-    {
-        source->_mpfr_d = nullptr;
-        mpfr_swap(value, source);
-    }
+    ScalarImpl(ScalarImpl const&) = delete;
+    auto operator=(ScalarImpl&&) -> ScalarImpl& = delete;
+    auto operator=(ScalarImpl const&) -> ScalarImpl& = delete;
 
     ScalarImpl()
     {
@@ -56,22 +42,71 @@ public:
         mpfr_set_zero(value, 1);
     }
 
-    ~ScalarImpl() { mpfr_clear(value); }
+    static auto nan() -> ScalarImpl
+    {
+        ScalarImpl result{};
+        mpfr_set_nan(result.value);
+        return result;
+    }
+
+    static auto positiveInf() -> ScalarImpl
+    {
+        ScalarImpl result{};
+        mpfr_set_inf(result.value, 1);
+        return result;
+    }
+
+    static auto negativeInf() -> ScalarImpl
+    {
+        ScalarImpl result{};
+        mpfr_set_inf(result.value, -1);
+        return result;
+    }
+
+    ~ScalarImpl()
+    {
+        // Support the C++ style move constructor by checking if this value was
+        // moved from.
+        if (value->_mpfr_d == nullptr)
+        {
+            return;
+        }
+        mpfr_clear(value);
+    }
 
     // NOLINTNEXTLINE (misc-non-private-member-variables-in-classes)
     mpfr_t value{};
 };
 
-static_assert(ptrdiff_t{ScalarImpl::MIN_BASE} > 0);
-static_assert(ptrdiff_t{ScalarImpl::MAX_BASE} > 0);
+// Check against the types that mpfr uses
+
+static_assert(int{ScalarImpl::MIN_BASE} > 0);
+static_assert(int{ScalarImpl::MAX_BASE} > 0);
 static_assert(ScalarImpl::MIN_BASE < ScalarImpl::MAX_BASE);
 
-static_assert(ptrdiff_t{ScalarImpl::MIN_PRECISION} > 0);
-static_assert(ptrdiff_t{ScalarImpl::MAX_PRECISION} > 0);
+static_assert(long{ScalarImpl::MIN_PRECISION} > 0);
+static_assert(long{ScalarImpl::MAX_PRECISION} > 0);
 static_assert(ScalarImpl::MIN_PRECISION < ScalarImpl::MAX_PRECISION);
 
-inline auto clampPrecision(ptrdiff_t const precision) -> size_t
+inline auto clampPrecisionFromMPFR(mpfr_prec_t const precision) -> size_t
 {
+    assert(precision > 0);
+
+    if (precision < 0)
+    {
+        return 0;
+    }
+
+    return precision;
+}
+
+inline auto clampPrecisionForMPFR(size_t const precision) -> mpfr_prec_t
+{
+    assert(
+        precision >= ScalarImpl::MIN_PRECISION
+        && precision <= ScalarImpl::MAX_PRECISION
+    );
+
     if (std::cmp_less(precision, ScalarImpl::MIN_PRECISION))
     {
         return ScalarImpl::MIN_PRECISION;
@@ -82,6 +117,23 @@ inline auto clampPrecision(ptrdiff_t const precision) -> size_t
         return ScalarImpl::MAX_PRECISION;
     }
 
-    return static_cast<size_t>(precision);
+    return precision;
+}
+
+inline auto clampBaseForMPFR(size_t const base) -> int
+{
+    assert(base >= ScalarImpl::MIN_BASE && base <= ScalarImpl::MAX_BASE);
+
+    if (base < ScalarImpl::MIN_BASE)
+    {
+        return ScalarImpl::MIN_BASE;
+    }
+
+    if (base > ScalarImpl::MAX_BASE)
+    {
+        return ScalarImpl::MAX_BASE;
+    }
+
+    return base;
 }
 } // namespace detail

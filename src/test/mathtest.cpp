@@ -370,6 +370,23 @@ void testScalarOperators()
     QCOMPARE(one / two, oneHalf);
 }
 
+void testNonOrdinaryScalarStringify()
+{
+    QCOMPARE(
+        calqmath::Scalar::nan().toString(), calqmath::Scalar::NAN_REPRESENTATION
+    );
+
+    QCOMPARE(
+        calqmath::Scalar::positiveInf().toString(),
+        calqmath::Scalar::POSITIVE_INFINITY_REPRESENTATION
+    );
+
+    QCOMPARE(
+        calqmath::Scalar::negativeInf().toString(),
+        calqmath::Scalar::NEGATIVE_INFINITY_REPRESENTATION
+    );
+}
+
 void testMinimalPrecision(calqmath::Interpreter const& interpreter)
 {
     for (size_t i = 0; i < calqmath::getBignumBackendPrecision(); i++)
@@ -562,6 +579,60 @@ void testParserMisc(calqmath::FunctionDatabase const& functions)
     }
 }
 
+void testInterpretNonOrdinaryScalars(calqmath::FunctionDatabase const& functions
+)
+{
+    auto const nan{calqmath::Scalar::nan()};
+    auto const positiveInf{calqmath::Scalar::positiveInf()};
+    auto const negativeInf{calqmath::Scalar::negativeInf()};
+
+    using TestCase = std::tuple<std::string, calqmath::Scalar>;
+    std::vector<TestCase> const infinityCases{
+        {"1 / 0", positiveInf},
+        {"-1 / 0", negativeInf},
+        {"-(1/0)", negativeInf},
+        {"1.0 + 1 / 0", positiveInf},
+        {"1.0 - 1 / 0", negativeInf},
+        {"1 / 0 + 1.0", positiveInf},
+        {"1 / 0 - 1.0", positiveInf},
+        {"1 / 0 + 1 / 0", positiveInf},
+
+        {"1 / 0 * 1 / 0", positiveInf},
+        {"1 / 0 / 1 / 0", positiveInf},
+
+    };
+
+    for (auto const& [input, expected] : infinityCases)
+    {
+        auto const tokens = calqmath::Lexer::convert(input);
+        QVERIFY(tokens.has_value());
+
+        auto const actual = calqmath::Parser::parse(functions, tokens.value());
+        QVERIFY(actual.has_value());
+
+        auto const actualResult = actual.value().evaluate();
+        QCOMPARE(actualResult, expected);
+    }
+
+    std::vector<std::string> const nanCases{
+        "1 / 0 - 1 / 0",
+        "0 / 0",
+    };
+
+    for (auto const& input : nanCases)
+    {
+        auto const tokens = calqmath::Lexer::convert(input);
+        QVERIFY(tokens.has_value());
+
+        auto const actual = calqmath::Parser::parse(functions, tokens.value());
+        QVERIFY(actual.has_value());
+
+        auto const actualResult = actual.value().evaluate();
+        QVERIFY(actualResult.has_value());
+        QVERIFY(actualResult.value().isNaN());
+    }
+}
+
 void testInterpretMixedNegation(calqmath::FunctionDatabase const& functions)
 {
     using TestCase = std::tuple<std::string, std::string>;
@@ -664,6 +735,7 @@ void TestMathInterpreter::test()
     // able to stringify properly.
     testScalarStringify();
     testScalarOperators();
+    testNonOrdinaryScalarStringify();
 
     // Test components in order of dependency
 
@@ -678,6 +750,7 @@ void TestMathInterpreter::test()
     testParserMisc(functions);
     testParserFunctions(functions);
 
+    testInterpretNonOrdinaryScalars(functions);
     testInterpretMixedNegation(functions);
     testInterpret(interpreter);
     testOrderOfOperators(interpreter);
