@@ -26,6 +26,7 @@ auto trim(std::string const& rawInput) -> std::string
 namespace calqmath
 {
 Interpreter::Interpreter()
+    : m_functions{FunctionDatabase::createWithDefaults()}
 {
     // TODO: hoist this somewhere more reasonable, for now interpreter acts as
     // the library frontend.

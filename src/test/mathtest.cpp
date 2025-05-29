@@ -601,7 +601,7 @@ void TestMathInterpreter::test()
     testLexerSingleCharacterTokens();
     testLexerMisc();
 
-    calqmath::FunctionDatabase const functions{};
+    auto const functions{calqmath::FunctionDatabase::createWithDefaults()};
     testParserParantheses(functions);
     testParserMisc(functions);
     testParserFunctions(functions);

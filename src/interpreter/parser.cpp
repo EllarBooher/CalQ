@@ -29,6 +29,7 @@ auto tokenToOperator(calqmath::TokenOperator const token) -> calqmath::BinaryOp
 }
 } // namespace
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 auto calqmath::Parser::parse(
     FunctionDatabase const& functions, std::span<Token const> const input
 ) -> std::optional<calqmath::Statement>

@@ -14,7 +14,8 @@ using UnaryFunction = std::function<Scalar(Scalar)>;
 class FunctionDatabase
 {
 public:
-    FunctionDatabase();
+    // Creates the database loading every function possible, for normal use.
+    static auto createWithDefaults() -> FunctionDatabase;
 
     /**
      * For example, the string "sin" will return the trigonometric sine
@@ -34,6 +35,8 @@ public:
     }
 
 private:
+    FunctionDatabase();
+
     std::map<std::string, UnaryFunction> m_unaryFunctions;
 };
 } // namespace calqmath

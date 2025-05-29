@@ -5,9 +5,13 @@
 
 namespace calqmath
 {
-FunctionDatabase::FunctionDatabase()
+FunctionDatabase::FunctionDatabase() = default;
+
+auto FunctionDatabase::createWithDefaults() -> FunctionDatabase
 {
-    m_unaryFunctions = std::map<std::string, UnaryFunction>{
+    FunctionDatabase result{};
+
+    result.m_unaryFunctions = std::map<std::string, UnaryFunction>{
         {"id", Functions::id},       {"abs", Functions::abs},
         {"ceil", Functions::ceil},   {"floor", Functions::floor},
         {"round", Functions::round}, {"roundeven", Functions::roundeven},
@@ -24,6 +28,8 @@ FunctionDatabase::FunctionDatabase()
         {"tanh", Functions::tanh},   {"asinh", Functions::asinh},
         {"acosh", Functions::acosh}, {"atanh", Functions::atanh},
     };
+
+    return result;
 }
 
 auto FunctionDatabase::lookup(std::string const& identifier) const
