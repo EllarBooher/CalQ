@@ -2,6 +2,7 @@
 
 #include "mpfr.h"
 #include "numberimpl.h"
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -18,19 +19,41 @@ void initBignumBackend()
     // performing a lot of calculations. Most user input statements will have a
     // couple dozen calculations at most.
     auto constexpr DEFAULT_MINIMUM_PRECISION{500};
-    mpfr_set_default_prec(static_cast<mpfr_prec_t>(DEFAULT_MINIMUM_PRECISION));
+    mpfr_set_default_prec(mpfr_prec_t{DEFAULT_MINIMUM_PRECISION});
 }
 
 auto getBignumBackendPrecision(size_t const base) -> size_t
 {
     assert(base > 0);
-    return static_cast<size_t>(mpfr_get_default_prec()) * std::numbers::ln2
-         / std::log(base);
+    auto const precision{detail::clampPrecision(mpfr_get_default_prec())};
+    return precision * std::numbers::ln2 / std::log(base);
 }
 
-Scalar::Scalar(std::string const& representation, uint16_t const base)
+auto Scalar::precisionMin() -> size_t
 {
-    m_impl = std::make_unique<detail::ScalarImpl>(representation, base);
+    return detail::ScalarImpl::MIN_PRECISION;
+}
+auto Scalar::precisionMax() -> size_t
+{
+    return detail::ScalarImpl::MAX_PRECISION;
+}
+
+Scalar::Scalar(size_t precision)
+{
+    assert(std::cmp_less(precision, std::numeric_limits<mpfr_prec_t>::max()));
+    m_impl =
+        std::make_unique<detail::ScalarImpl>(static_cast<mpfr_prec_t>(precision)
+        );
+}
+
+auto Scalar::baseMin() -> size_t { return detail::ScalarImpl::MIN_BASE; }
+auto Scalar::baseMax() -> size_t { return detail::ScalarImpl::MAX_BASE; }
+
+Scalar::Scalar(std::string const& representation, size_t const base)
+{
+    m_impl = std::make_unique<detail::ScalarImpl>(
+        representation, std::clamp(base, baseMin(), baseMax())
+    );
 }
 
 auto Scalar::operator=(Scalar&& other) noexcept -> Scalar&
@@ -68,7 +91,7 @@ auto Scalar::toMantissaExponent() const -> std::tuple<std::string, ptrdiff_t>
     );
 
     std::get<0>(result) = pMantissa;
-    std::get<1>(result) = static_cast<ptrdiff_t>(exponent);
+    std::get<1>(result) = ptrdiff_t{exponent};
 
     auto& str = std::get<0>(result);
     str.erase(str.find_last_not_of('0') + 1);
@@ -136,7 +159,7 @@ auto decompose(calqmath::Scalar const& number) -> ScalarStringDecomposition
         decomposition.postDecimal =
             std::string(std::abs(exponent), '0') + mantissa;
     }
-    else if (static_cast<size_t>(exponent) >= mantissa.size())
+    else if (std::cmp_greater_equal(exponent, mantissa.size()))
     {
         // Numbers like MANTISSA0000
         decomposition.preDecimal =
@@ -157,12 +180,13 @@ auto format(ScalarStringDecomposition decomposition) -> std::string
     auto constexpr DIGIT_SEPARATOR = '_';
     auto constexpr NEGATIVE_SIGN = '-';
 
-    for (ptrdiff_t i = decomposition.preDecimal.size() - 3; i >= 1; i -= 3)
+    for (size_t i = 3; i < decomposition.preDecimal.size(); i += 4)
     {
         decomposition.preDecimal.insert(
-            static_cast<size_t>(i), 1, DIGIT_SEPARATOR
+            decomposition.preDecimal.size() - i, 1, DIGIT_SEPARATOR
         );
     }
+
     for (size_t i = 3; i < decomposition.postDecimal.size(); i += 4)
     {
         decomposition.postDecimal.insert(i, 1, DIGIT_SEPARATOR);
@@ -275,11 +299,6 @@ auto Scalar::operator-() const -> Scalar
         result.m_impl->value, m_impl->value, mpfr_get_default_rounding_mode()
     );
     return result;
-}
-
-Scalar::Scalar(detail::ScalarImpl&& impl)
-{
-    m_impl = std::make_unique<detail::ScalarImpl>(std::move(impl));
 }
 
 } // namespace calqmath

@@ -22,11 +22,29 @@ class Scalar
 {
 public:
     explicit Scalar(double const number) = delete;
+
+    static auto precisionMin() -> size_t;
+    static auto precisionMax() -> size_t;
+    /*
+     * Precision gets clamped to the range returned by precisionMax and
+     * precisionMin.
+     */
+    explicit Scalar(size_t precision);
+
+    static auto baseMin() -> size_t;
+    static auto baseMax() -> size_t;
+    /*
+     * Base gets clamped to the range returned by baseMax and baseMin.
+     */
     explicit Scalar(
-        std::string const& representation, uint16_t base = DEFAULT_BASE
+        std::string const& representation, size_t base = DEFAULT_BASE
     );
+
     Scalar(Scalar&& other) noexcept;
     Scalar(Scalar const& other);
+
+    // Makes positive 0
+    Scalar();
 
     auto operator=(Scalar&& other) noexcept -> Scalar&;
     auto operator=(Scalar const& other) -> Scalar&;
@@ -58,9 +76,6 @@ public:
     friend Functions;
 
 private:
-    explicit Scalar(detail::ScalarImpl&& impl);
-    Scalar();
-
     std::unique_ptr<detail::ScalarImpl> m_impl;
 };
 } // namespace calqmath
