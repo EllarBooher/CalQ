@@ -185,6 +185,26 @@ auto QTest::toString(std::optional<calqmath::Statement> const& statement)
     return qstrdup(bytes);
 }
 
+template <>
+auto QTest::toString(std::optional<calqmath::Scalar> const& scalar) -> char*
+{
+    QString output{};
+
+    if (scalar.has_value())
+    {
+        output += "some: ";
+        output += QTest::toString(scalar.value());
+    }
+    else
+    {
+        output += "nullopt";
+    }
+
+    QByteArray const bytes = output.toUtf8();
+
+    return qstrdup(bytes);
+}
+
 namespace
 {
 void testInterpret(calqmath::Interpreter const& interpreter)
@@ -328,6 +348,26 @@ void testScalarStringify()
     {
         QCOMPARE(calqmath::Scalar{input}.toString(), output);
     }
+}
+
+void testScalarOperators()
+{
+    calqmath::Scalar const minusOne{"-1"};
+    calqmath::Scalar const oneHalf{"0.5"};
+    calqmath::Scalar const one{"1"};
+    calqmath::Scalar const two{"2"};
+
+    QCOMPARE(one + one, two);
+    QCOMPARE(-one, minusOne);
+
+    QCOMPARE(two - one, one);
+    QCOMPARE(one - two, minusOne);
+
+    QCOMPARE(one * two, two);
+    QCOMPARE(two * one, two);
+
+    QCOMPARE(two / one, two);
+    QCOMPARE(one / two, oneHalf);
 }
 
 void testMinimalPrecision(calqmath::Interpreter const& interpreter)
@@ -522,6 +562,37 @@ void testParserMisc(calqmath::FunctionDatabase const& functions)
     }
 }
 
+void testInterpretMixedNegation(calqmath::FunctionDatabase const& functions)
+{
+    using TestCase = std::tuple<std::string, std::string>;
+    std::vector<TestCase> const validTestCases{
+        {"-1", "-1"},
+        {"id(1)", "1"},
+        {"-id(1)", "-1"},
+        {"-(1)", "-1"},
+        {"-(-1)", "1"},
+        {"(-1)", "-1"},
+        {"-(id(1))", "-1"},
+        {"-(-id(1))", "1"},
+        {"(-id(1))", "-1"},
+    };
+
+    for (auto const& [input, outputDecimalRepresentation] : validTestCases)
+    {
+        auto const tokens = calqmath::Lexer::convert(input);
+        QVERIFY(tokens.has_value());
+
+        auto const actual = calqmath::Parser::parse(functions, tokens.value());
+        QVERIFY(actual.has_value());
+
+        auto const actualResult = actual.value().evaluate();
+        auto const expectedResult =
+            calqmath::Scalar{outputDecimalRepresentation};
+
+        QCOMPARE(actualResult, expectedResult);
+    }
+}
+
 void testParserParantheses(calqmath::FunctionDatabase const& functions)
 {
     std::vector<std::string> const invalid{
@@ -592,6 +663,7 @@ void TestMathInterpreter::test()
     // Test this first, since a lot, including debugging, relies on being
     // able to stringify properly.
     testScalarStringify();
+    testScalarOperators();
 
     // Test components in order of dependency
 
@@ -606,6 +678,7 @@ void TestMathInterpreter::test()
     testParserMisc(functions);
     testParserFunctions(functions);
 
+    testInterpretMixedNegation(functions);
     testInterpret(interpreter);
     testOrderOfOperators(interpreter);
     testFunctionParsing(interpreter);

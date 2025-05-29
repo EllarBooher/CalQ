@@ -59,6 +59,7 @@ public:
     void reset(Term&& initial);
     auto reset(Statement&& initial) -> Statement&;
 
+    void setNegate(bool negate);
     void setFunction(UnaryFunction&& function);
 
     auto backTerm() -> Term&;
@@ -75,6 +76,9 @@ private:
     [[nodiscard]] auto stringTerm(size_t index) const -> std::string;
     [[nodiscard]] auto evaluateTerm(size_t index) const
         -> std::optional<Scalar>;
+
+    // Negate the statement's evaluated value as the final step.
+    bool m_negate{false};
 
     // A function that is run as the statements final result. null optional
     // indicates the identity function, so a no-op.

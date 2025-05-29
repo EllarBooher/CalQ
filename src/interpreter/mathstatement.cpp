@@ -6,7 +6,6 @@
 #include <cstddef>
 #include <deque>
 #include <expected>
-#include <iostream>
 #include <optional>
 #include <string>
 #include <variant>
@@ -210,10 +209,16 @@ auto Statement::evaluate() const -> std::optional<Scalar>
     assert(terms.size() == 1);
     Scalar result = std::move(terms)[0];
 
+    // Potentially lots of function overhead here
     if (m_function.has_value())
     {
         assert(m_function.value() != nullptr);
-        return m_function.value()(result);
+        result = m_function.value()(result);
+    }
+
+    if (m_negate)
+    {
+        result = -result;
     }
 
     return result;
@@ -238,6 +243,8 @@ auto Statement::reset(Statement&& initial) -> Statement&
 
     return std::get<Statement>(*m_terms.back());
 }
+
+void Statement::setNegate(bool negate) { m_negate = negate; }
 
 void Statement::setFunction(UnaryFunction&& function)
 {

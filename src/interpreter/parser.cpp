@@ -27,6 +27,45 @@ auto tokenToOperator(calqmath::TokenOperator const token) -> calqmath::BinaryOp
     }
     std::unreachable();
 }
+
+auto tokenIsOperator(calqmath::Token const& token) -> bool
+{
+    auto const* const pOperator = std::get_if<calqmath::TokenOperator>(&token);
+    return pOperator != nullptr;
+}
+auto tokenIsMinus(calqmath::Token const& token) -> bool
+{
+    auto const* const pOperator = std::get_if<calqmath::TokenOperator>(&token);
+
+    return pOperator != nullptr
+        && (*pOperator) == calqmath::TokenOperator::Minus;
+}
+
+auto tokenIsFunction(calqmath::Token const& token) -> bool
+{
+    auto const* const pFunction = std::get_if<calqmath::TokenFunction>(&token);
+    return pFunction != nullptr;
+}
+
+auto tokenIsOpenBracket(calqmath::Token const& token) -> bool
+{
+    auto const* const pOpenBracket =
+        std::get_if<calqmath::TokenOpenBracket>(&token);
+    return pOpenBracket != nullptr;
+}
+
+auto tokenIsClosedBracket(calqmath::Token const& token) -> bool
+{
+    auto const* const pClosedBracket =
+        std::get_if<calqmath::TokenClosedBracket>(&token);
+    return pClosedBracket != nullptr;
+}
+
+auto tokenIsNumber(calqmath::Token const& token) -> bool
+{
+    auto const* const pNumber = std::get_if<calqmath::TokenNumber>(&token);
+    return pNumber != nullptr;
+}
 } // namespace
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -51,114 +90,117 @@ auto calqmath::Parser::parse(
      * Tokens that don't create a new term are
      * operators, closed parantheses, etc. They are usually followed immediately
      * by another term.
+     *
+     * An exception to this is the unary operator '-'. '-' is overloaded to be
+     * subtraction and negation, and requires special handling.
      */
     bool expectNewTerm = true;
 
-    bool constexpr SUCCESS = true;
-    bool constexpr FAILURE = false;
-
-    auto const visitors{overloads{
-        [&](TokenOperator const& token)
-    {
-        if (expectNewTerm && !tokens.empty())
-        {
-            // Unary negative sign e.g. make a number negative
-            if (token == TokenOperator::Minus
-                && std::holds_alternative<TokenNumber>(tokens.front()))
-            {
-                TokenNumber const number =
-                    std::get<TokenNumber>(tokens.front());
-                tokens.pop_front();
-
-                depthStack.top()->backTerm() =
-                    -Scalar{number.m_decimalRepresentation};
-                expectNewTerm = false;
-                return SUCCESS;
-            }
-
-            return FAILURE;
-        }
-
-        BinaryOp const mathOperator{::tokenToOperator(token)};
-
-        depthStack.top()->append(mathOperator);
-        expectNewTerm = true;
-        return SUCCESS;
-    },
-        [&](TokenClosedBracket const&)
-    {
-        // Root level statement has no parantheses, so it cannot ever be popped.
-        if (expectNewTerm || depthStack.size() < 2)
-        {
-            return FAILURE;
-        }
-
-        depthStack.pop();
-        expectNewTerm = false;
-        return SUCCESS;
-    },
-        [&](TokenNumber const& number)
-    {
-        if (!expectNewTerm)
-        {
-            return FAILURE;
-        }
-
-        depthStack.top()->backTerm() = Scalar{number.m_decimalRepresentation};
-        expectNewTerm = false;
-        return SUCCESS;
-    },
-        [&](TokenFunction const& function)
-    {
-        if (!expectNewTerm)
-        {
-            return FAILURE;
-        }
-
-        if (tokens.empty()
-            || !std::holds_alternative<TokenOpenBracket>(tokens.front()))
-        {
-            return FAILURE;
-        }
-        tokens.pop_front();
-
-        Term& backTerm = depthStack.top()->backTerm();
-        backTerm = Statement{};
-
-        auto functionLookup{functions.lookup(function.m_functionName)};
-        if (!functionLookup.has_value())
-        {
-            return FAILURE;
-        }
-
-        std::get<Statement>(backTerm).setFunction(
-            std::move(functionLookup).value()
-        );
-        depthStack.push(&std::get<Statement>(backTerm));
-        expectNewTerm = true;
-        return SUCCESS;
-    },
-        [&](TokenOpenBracket const&)
-    {
-        if (!expectNewTerm)
-        {
-            return FAILURE;
-        }
-
-        Term& backTerm = depthStack.top()->backTerm();
-        backTerm = Statement{};
-
-        depthStack.push(&std::get<Statement>(backTerm));
-        expectNewTerm = true;
-        return SUCCESS;
-    }
-    }};
-
     while (!tokens.empty())
     {
-        Token const token{tokens.front()};
-        tokens.pop_front();
-        if (std::visit(visitors, token) == FAILURE)
+        if (expectNewTerm)
+        {
+            bool const negate{::tokenIsMinus(tokens.front())};
+            if (negate)
+            {
+                tokens.pop_front();
+            }
+
+            if (tokens.empty())
+            {
+                return std::nullopt;
+            }
+
+            if (::tokenIsFunction(tokens.front())
+                || ::tokenIsOpenBracket(tokens.front()))
+            {
+                std::optional<std::string> functionName{};
+                if (::tokenIsFunction(tokens.front()))
+                {
+                    TokenFunction const function{
+                        std::get<TokenFunction>(tokens.front())
+                    };
+                    tokens.pop_front();
+
+                    functionName = function.m_functionName;
+                }
+
+                if (tokens.empty() || !::tokenIsOpenBracket(tokens.front()))
+                {
+                    return std::nullopt;
+                }
+                tokens.pop_front();
+
+                auto& newStatement = std::get<Statement>(
+                    depthStack.top()->backTerm() = Statement{}
+                );
+                depthStack.push(&newStatement);
+
+                newStatement.setNegate(negate);
+
+                if (functionName.has_value())
+                {
+                    auto functionLookup{functions.lookup(functionName.value())};
+                    if (!functionLookup.has_value())
+                    {
+                        return std::nullopt;
+                    }
+
+                    newStatement.setFunction(std::move(functionLookup).value());
+                }
+
+                expectNewTerm = true;
+            }
+            else if (::tokenIsNumber(tokens.front()))
+            {
+                TokenNumber const number{std::get<TokenNumber>(tokens.front())};
+                tokens.pop_front();
+
+                if (negate)
+                {
+                    depthStack.top()->backTerm() =
+                        -Scalar{number.m_decimalRepresentation};
+                }
+                else
+                {
+                    depthStack.top()->backTerm() =
+                        Scalar{number.m_decimalRepresentation};
+                }
+
+                expectNewTerm = false;
+            }
+            else
+            {
+                return std::nullopt;
+            }
+
+            continue;
+        }
+
+        if (tokens.empty())
+        {
+            return std::nullopt;
+        }
+
+        if (::tokenIsOperator(tokens.front()))
+        {
+            BinaryOp const mathOperator{
+                ::tokenToOperator(std::get<TokenOperator>(tokens.front()))
+            };
+            tokens.pop_front();
+
+            depthStack.top()->append(mathOperator);
+            expectNewTerm = true;
+        }
+        else if (::tokenIsClosedBracket(tokens.front())
+                 && depthStack.size() > 1)
+        {
+            tokens.pop_front();
+
+            depthStack.pop();
+            expectNewTerm = false;
+        }
+        else
         {
             return std::nullopt;
         }
