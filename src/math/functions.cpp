@@ -7,7 +7,9 @@
     {                                                                          \
         Scalar result{};                                                       \
         mpfr_##func(                                                           \
-            result.p_impl, arg1.p_impl, mpfr_get_default_rounding_mode()       \
+            result.p_impl.get(),                                               \
+            arg1.p_impl.get(),                                                 \
+            mpfr_get_default_rounding_mode()                                   \
         );                                                                     \
         return result;                                                         \
     }
@@ -16,7 +18,7 @@
     auto Functions::func(Scalar const& arg1) -> Scalar                         \
     {                                                                          \
         Scalar result{};                                                       \
-        mpfr_##func(result.p_impl, arg1.p_impl);                               \
+        mpfr_##func(result.p_impl.get(), arg1.p_impl.get());                   \
         return result;                                                         \
     }
 
@@ -38,7 +40,7 @@ WRAP_UNARY_SCALAR_NO_ROUND(round, argument);
 auto Functions::roundeven(Scalar const& argument) -> Scalar
 {
     Scalar result{};
-    mpfr_rint(result.p_impl, argument.p_impl, MPFR_RNDN);
+    mpfr_rint(result.p_impl.get(), argument.p_impl.get(), MPFR_RNDN);
     return result;
 }
 WRAP_UNARY_SCALAR_NO_ROUND(trunc, argument);
@@ -53,18 +55,18 @@ WRAP_UNARY_SCALAR(log2, argument);
 
 auto Functions::logn(Scalar const& base, Scalar const& argument) -> Scalar
 {
-    auto const precision{
-        std::max(mpfr_get_prec(base.p_impl), mpfr_get_prec(argument.p_impl))
-    };
+    auto const precision{std::max(
+        mpfr_get_prec(base.p_impl.get()), mpfr_get_prec(argument.p_impl.get())
+    )};
     Scalar result{detail::clampPrecisionFromMPFR(precision)};
 
     auto numerator = log(argument);
     auto denominator = log(base);
 
     mpfr_div(
-        result.p_impl,
-        numerator.p_impl,
-        denominator.p_impl,
+        result.p_impl.get(),
+        numerator.p_impl.get(),
+        denominator.p_impl.get(),
         mpfr_get_default_rounding_mode()
     );
 

@@ -27,3 +27,4 @@ Checks: >
 WarningsAsErrors: '*'
 CheckOptions:
   readability-identifier-naming.PrivateMemberPrefix: 'm_'
+  readability-identifier-naming.PrivateMemberIgnoredRegexp: 'p_.*'

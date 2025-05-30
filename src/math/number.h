@@ -96,6 +96,6 @@ public:
     friend Functions;
 
 private:
-    detail::ScalarImpl* p_impl{nullptr};
+    std::unique_ptr<detail::ScalarImpl> p_impl{nullptr};
 };
 } // namespace calqmath
