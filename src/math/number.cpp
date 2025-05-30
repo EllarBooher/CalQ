@@ -15,7 +15,7 @@ namespace calqmath
 void initBignumBackend()
 {
     // Such a high default may have performance implications, but we aren't
-    // performing a lot of calculations. Most user input statements will have a
+    // performing a lot of calculations. Most user input expressions will have a
     // couple dozen calculations at most.
     auto constexpr DEFAULT_MINIMUM_PRECISION{500};
     mpfr_set_default_prec(mpfr_prec_t{DEFAULT_MINIMUM_PRECISION});
@@ -29,30 +29,26 @@ auto getBignumBackendPrecision(size_t const base) -> size_t
     return precision * std::numbers::ln2 / std::log(base);
 }
 
-auto Scalar::precisionMin() -> size_t
-{
-    return detail::ScalarImpl::MIN_PRECISION;
-}
-auto Scalar::precisionMax() -> size_t
-{
-    return detail::ScalarImpl::MAX_PRECISION;
-}
+auto Scalar::precisionMin() -> size_t { return detail::MIN_PRECISION; }
+auto Scalar::precisionMax() -> size_t { return detail::MAX_PRECISION; }
 
 Scalar::Scalar(size_t precision)
 {
-    m_impl = std::make_unique<detail::ScalarImpl>(
-        detail::clampPrecisionForMPFR(precision)
-    );
+    p_impl = new detail::ScalarImpl();
+    mpfr_init2(p_impl, detail::clampPrecisionForMPFR(precision));
+
+    mpfr_set_zero(p_impl, 1);
 }
 
-auto Scalar::baseMin() -> size_t { return detail::ScalarImpl::MIN_BASE; }
-auto Scalar::baseMax() -> size_t { return detail::ScalarImpl::MAX_BASE; }
+auto Scalar::baseMin() -> size_t { return detail::MIN_BASE; }
+auto Scalar::baseMax() -> size_t { return detail::MAX_BASE; }
 
 Scalar::Scalar(std::string const& representation, size_t const base)
 {
-    m_impl = std::make_unique<detail::ScalarImpl>();
+    *this = Scalar{};
+
     mpfr_set_str(
-        m_impl->value,
+        p_impl,
         representation.c_str(),
         detail::clampBaseForMPFR(base),
         mpfr_get_default_rounding_mode()
@@ -61,17 +57,15 @@ Scalar::Scalar(std::string const& representation, size_t const base)
 
 auto Scalar::operator=(Scalar&& other) noexcept -> Scalar&
 {
-    m_impl = std::exchange(other.m_impl, nullptr);
+    p_impl = std::exchange(other.p_impl, nullptr);
     return *this;
 }
 auto Scalar::operator=(Scalar const& other) -> Scalar&
 {
-    m_impl =
-        std::make_unique<detail::ScalarImpl>(mpfr_get_prec(other.m_impl->value)
-        );
-    mpfr_set(
-        m_impl->value, other.m_impl->value, mpfr_get_default_rounding_mode()
-    );
+    *this = Scalar{};
+
+    mpfr_set(p_impl, other.p_impl, mpfr_get_default_rounding_mode());
+
     return *this;
 }
 
@@ -79,8 +73,26 @@ Scalar::Scalar(Scalar&& other) noexcept { *this = std::move(other); }
 
 Scalar::Scalar(Scalar const& other) { *this = other; }
 
-Scalar::Scalar() { m_impl = std::make_unique<detail::ScalarImpl>(); }
-Scalar::~Scalar() = default;
+Scalar::Scalar()
+{
+    *this = Scalar{detail::clampPrecisionFromMPFR(mpfr_get_default_prec())};
+}
+Scalar::~Scalar()
+{
+    // Support the C++ style move constructor by checking if this value was
+    // moved from.
+    if (p_impl == nullptr)
+    {
+        return;
+    }
+
+    if (p_impl->_mpfr_d != nullptr)
+    {
+        mpfr_clear(p_impl);
+    }
+
+    delete p_impl;
+}
 
 auto Scalar::toMantissaExponent() const -> std::tuple<std::string, ptrdiff_t>
 {
@@ -94,7 +106,7 @@ auto Scalar::toMantissaExponent() const -> std::tuple<std::string, ptrdiff_t>
         &exponent,
         DEFAULT_BASE,
         PRECISION_DIGITS,
-        m_impl->value,
+        p_impl,
         mpfr_get_default_rounding_mode()
     );
 
@@ -112,24 +124,21 @@ auto Scalar::toMantissaExponent() const -> std::tuple<std::string, ptrdiff_t>
 auto Scalar::nan() -> Scalar
 {
     Scalar result{};
-    result.m_impl =
-        std::make_unique<detail::ScalarImpl>(detail::ScalarImpl::nan());
+    mpfr_set_nan(result.p_impl);
     return result;
 }
 
 auto Scalar::positiveInf() -> Scalar
 {
     Scalar result{};
-    result.m_impl =
-        std::make_unique<detail::ScalarImpl>(detail::ScalarImpl::positiveInf());
+    mpfr_set_inf(result.p_impl, 1);
     return result;
 }
 
 auto Scalar::negativeInf() -> Scalar
 {
     Scalar result{};
-    result.m_impl =
-        std::make_unique<detail::ScalarImpl>(detail::ScalarImpl::negativeInf());
+    mpfr_set_inf(result.p_impl, -1);
     return result;
 }
 
@@ -263,12 +272,12 @@ auto format(ScalarStringDecomposition decomposition) -> std::string
 
 auto Scalar::toString() const -> std::string
 {
-    if (mpfr_nan_p(m_impl->value) != 0)
+    if (mpfr_nan_p(p_impl) != 0)
     {
         return NAN_REPRESENTATION;
     }
 
-    if (mpfr_inf_p(m_impl->value) != 0)
+    if (mpfr_inf_p(p_impl) != 0)
     {
         auto const sgn{sign()};
         assert(sgn == Sign::NEGATIVE || sgn == Sign::POSITIVE);
@@ -286,7 +295,7 @@ auto Scalar::toString() const -> std::string
 
 auto Scalar::sign() const -> Sign
 {
-    auto const sgn = mpfr_sgn(m_impl->value);
+    auto const sgn = mpfr_sgn(p_impl);
     if (sgn > 0)
     {
         return Sign::POSITIVE;
@@ -300,11 +309,11 @@ auto Scalar::sign() const -> Sign
     return Sign::NEGATIVE;
 }
 
-auto Scalar::isNaN() const -> bool { return mpfr_nan_p(m_impl->value); }
+auto Scalar::isNaN() const -> bool { return mpfr_nan_p(p_impl); }
 
 auto Scalar::operator==(Scalar const& rhs) const -> bool
 {
-    return mpfr_equal_p(m_impl->value, rhs.m_impl->value) != 0;
+    return mpfr_equal_p(p_impl, rhs.p_impl) != 0;
 }
 
 auto Scalar::operator!=(Scalar const& rhs) const -> bool
@@ -316,10 +325,7 @@ auto Scalar::operator+(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
     mpfr_add(
-        result.m_impl->value,
-        m_impl->value,
-        rhs.m_impl->value,
-        mpfr_get_default_rounding_mode()
+        result.p_impl, p_impl, rhs.p_impl, mpfr_get_default_rounding_mode()
     );
     return result;
 }
@@ -328,10 +334,7 @@ auto Scalar::operator-(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
     mpfr_sub(
-        result.m_impl->value,
-        m_impl->value,
-        rhs.m_impl->value,
-        mpfr_get_default_rounding_mode()
+        result.p_impl, p_impl, rhs.p_impl, mpfr_get_default_rounding_mode()
     );
     return result;
 }
@@ -340,10 +343,7 @@ auto Scalar::operator*(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
     mpfr_mul(
-        result.m_impl->value,
-        m_impl->value,
-        rhs.m_impl->value,
-        mpfr_get_default_rounding_mode()
+        result.p_impl, p_impl, rhs.p_impl, mpfr_get_default_rounding_mode()
     );
     return result;
 }
@@ -351,10 +351,7 @@ auto Scalar::operator/(Scalar const& rhs) const -> Scalar
 {
     Scalar result{};
     mpfr_div(
-        result.m_impl->value,
-        m_impl->value,
-        rhs.m_impl->value,
-        mpfr_get_default_rounding_mode()
+        result.p_impl, p_impl, rhs.p_impl, mpfr_get_default_rounding_mode()
     );
     return result;
 }
@@ -362,9 +359,7 @@ auto Scalar::operator/(Scalar const& rhs) const -> Scalar
 auto Scalar::operator-() const -> Scalar
 {
     Scalar result{};
-    mpfr_neg(
-        result.m_impl->value, m_impl->value, mpfr_get_default_rounding_mode()
-    );
+    mpfr_neg(result.p_impl, p_impl, mpfr_get_default_rounding_mode());
     return result;
 }
 
