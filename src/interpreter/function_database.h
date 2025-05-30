@@ -11,6 +11,10 @@ namespace calqmath
 {
 using UnaryFunction = std::function<Scalar(Scalar)>;
 
+/**
+ * @brief The FunctionDatabase class stores loaded functions for easy lookup by
+ * the interpreter.
+ */
 class FunctionDatabase
 {
 public:
@@ -18,10 +22,11 @@ public:
     static auto createWithDefaults() -> FunctionDatabase;
 
     /**
+     * @brief lookup - Look up unary function by its identitifer.
+     *
      * For example, the string "sin" will return the trigonometric sine
      * function.
      *
-     * @brief lookup - Look up unary function by its identitifer.
      * @param rawInput - Raw string input
      * @return Returns the function that was found. Returns null if no such
      *  function is loaded.

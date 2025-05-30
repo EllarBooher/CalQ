@@ -1,6 +1,6 @@
-#include "mathstatement.h"
+#include "expression.h"
 
-#include "mathfunction.h"
+#include "function_database.h"
 #include <cassert>
 #include <cctype>
 #include <cstddef>
@@ -20,7 +20,7 @@ template <class... Ts> struct overloads : Ts...
 
 namespace calqmath
 {
-auto Statement::operator=(Statement const& other) -> Statement&
+auto Expression::operator=(Expression const& other) -> Expression&
 {
     m_terms.clear();
 
@@ -33,9 +33,9 @@ auto Statement::operator=(Statement const& other) -> Statement&
     return *this;
 }
 
-Statement::Statement(Statement const& other) { *this = other; }
+Expression::Expression(Expression const& other) { *this = other; }
 
-auto Statement::operator=(Statement&& other) noexcept -> Statement&
+auto Expression::operator=(Expression&& other) noexcept -> Expression&
 {
     m_terms = std::move(other).m_terms;
     m_operators = std::move(other).m_operators;
@@ -43,11 +43,11 @@ auto Statement::operator=(Statement&& other) noexcept -> Statement&
     return *this;
 }
 
-Statement::Statement(Statement&& other) noexcept { *this = std::move(other); }
+Expression::Expression(Expression&& other) noexcept { *this = std::move(other); }
 
-auto Statement::operator==(Statement const& rhs) const -> bool
+auto Expression::operator==(Expression const& rhs) const -> bool
 {
-    if (length() != rhs.length())
+    if (termCount() != rhs.termCount())
     {
         return false;
     }
@@ -57,7 +57,7 @@ auto Statement::operator==(Statement const& rhs) const -> bool
         return false;
     }
 
-    for (size_t index = 0; index < length(); index++)
+    for (size_t index = 0; index < termCount(); index++)
     {
         auto const& lhsTerm{m_terms[index]};
         auto const& rhsTerm{rhs.m_terms[index]};
@@ -99,7 +99,7 @@ auto mathOperatorToString(BinaryOp const binaryOp) -> char const*
 }
 } // namespace
 
-auto Statement::string() const -> std::string
+auto Expression::string() const -> std::string
 {
     if (!valid())
     {
@@ -125,7 +125,7 @@ auto Statement::string() const -> std::string
     return output;
 }
 
-auto Statement::evaluate() const -> std::optional<Scalar>
+auto Expression::evaluate() const -> std::optional<Scalar>
 {
     if (!valid())
     {
@@ -224,9 +224,9 @@ auto Statement::evaluate() const -> std::optional<Scalar>
     return result;
 }
 
-auto Statement::length() const -> size_t { return m_terms.size(); }
+auto Expression::termCount() const -> size_t { return m_terms.size(); }
 
-void Statement::reset(Term&& initial)
+void Expression::reset(Term&& initial)
 {
     m_terms.clear();
     m_operators.clear();
@@ -234,24 +234,24 @@ void Statement::reset(Term&& initial)
     m_terms.push_back(std::make_unique<Term>(std::move(initial)));
 }
 
-auto Statement::reset(Statement&& initial) -> Statement&
+auto Expression::reset(Expression&& initial) -> Expression&
 {
     m_terms.clear();
     m_operators.clear();
 
     m_terms.push_back(std::make_unique<Term>(std::move(initial)));
 
-    return std::get<Statement>(*m_terms.back());
+    return std::get<Expression>(*m_terms.back());
 }
 
-void Statement::setNegate(bool negate) { m_negate = negate; }
+void Expression::setNegate(bool negate) { m_negate = negate; }
 
-void Statement::setFunction(UnaryFunction&& function)
+void Expression::setFunction(UnaryFunction&& function)
 {
     m_function = std::move(function);
 }
 
-auto Statement::backTerm() -> Term&
+auto Expression::backTerm() -> Term&
 {
     if (empty())
     {
@@ -263,7 +263,7 @@ auto Statement::backTerm() -> Term&
     return *m_terms.back();
 }
 
-auto Statement::append(BinaryOp mathOp) -> Term&
+auto Expression::append(BinaryOp mathOp) -> Term&
 {
     m_terms.push_back(std::make_unique<Term>(Scalar{"0.0"}));
     m_operators.push_back(mathOp);
@@ -271,35 +271,51 @@ auto Statement::append(BinaryOp mathOp) -> Term&
     return *m_terms.back();
 }
 
-auto Statement::appendStatement(BinaryOp mathOp) -> Statement&
+auto Expression::appendExpression(BinaryOp mathOp) -> Expression&
 {
     auto& term = append(mathOp);
-    term = Statement();
-    return std::get<Statement>(term);
+    term = Expression();
+    return std::get<Expression>(term);
 }
 
-auto Statement::stringTerm(size_t index) const -> std::string
+auto Expression::stringTerm(size_t index) const -> std::string
 {
     assert(index < m_terms.size() || m_terms[index] != nullptr);
 
     auto const visitor = overloads{
         [](Scalar const& number) { return number.toString(); },
-        [](Statement const& statement)
-    { return "(" + statement.string() + ")"; },
+        [](Expression const& expression)
+    { return "(" + expression.string() + ")"; },
     };
 
     return std::visit(visitor, *m_terms[index]);
 }
 
-auto Statement::evaluateTerm(size_t index) const -> std::optional<Scalar>
+auto Expression::evaluateTerm(size_t index) const -> std::optional<Scalar>
 {
     assert(index < m_terms.size() || m_terms[index] != nullptr);
 
     auto const visitor = overloads{
         [](Scalar const& number) { return std::optional{number}; },
-        [](Statement const& statement) { return statement.evaluate(); }
+        [](Expression const& expression) { return expression.evaluate(); }
     };
 
     return std::visit(visitor, *m_terms[index]);
 }
+
+auto Expression::valid() const -> bool
+{
+    bool const completelyEmpty = m_terms.empty() && m_operators.empty();
+    bool const oneOpBetweenAllConsecutiveTerms =
+        m_operators.size() == m_terms.size() - 1;
+    bool const noNullChildren =
+        std::count(m_terms.begin(), m_terms.end(), nullptr) == 0;
+
+    return (
+        (completelyEmpty || oneOpBetweenAllConsecutiveTerms) && noNullChildren
+    );
+}
+
+auto Expression::empty() const -> bool { return termCount() == 0; }
+
 } // namespace calqmath

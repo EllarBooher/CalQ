@@ -65,11 +65,11 @@ target_link_libraries(CalQMath PRIVATE MPFR)
 
 qt_add_library(CalQInterpreter
   STATIC
-  src/interpreter/mathinterpreter.h     src/interpreter/mathinterpreter.cpp
-  src/interpreter/mathfunction.h        src/interpreter/mathfunction.cpp
-  src/interpreter/mathstatement.h       src/interpreter/mathstatement.cpp
-  src/interpreter/lexer.h               src/interpreter/lexer.cpp
-  src/interpreter/parser.h              src/interpreter/parser.cpp
+  src/interpreter/lexer.h              src/interpreter/lexer.cpp
+  src/interpreter/expression.h         src/interpreter/expression.cpp
+  src/interpreter/function_database.h  src/interpreter/function_database.cpp
+  src/interpreter/parser.h             src/interpreter/parser.cpp
+  src/interpreter/interpreter.h        src/interpreter/interpreter.cpp
 )
 set_target_properties(CalQInterpreter PROPERTIES CXX_STANDARD 23)
 target_include_directories(CalQInterpreter PRIVATE src/)

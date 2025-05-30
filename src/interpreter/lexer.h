@@ -14,8 +14,10 @@ struct TokenFunction
     std::string m_functionName;
 };
 
-// Number literal. The only literals right now are decimals of the form
-// "123.456", "-123.456", "123.", ".456", or "123".
+/*
+ * Number literal. The only literals right now are decimals of the form
+ * "123.456", "-123.456", "123.", ".456", or "123".
+ */
 struct TokenNumber
 {
     std::string m_decimalRepresentation;
@@ -30,8 +32,11 @@ enum class TokenOperator : uint8_t
     Divide
 };
 
-// Split up the bracket types, since they are fundamentally different and not
-// semantically interchangeable. This simplifies parsing.
+/*
+ * Split up the bracket types, since they are fundamentally different and not
+ * semantically interchangeable. This simplifies parsing.
+ */
+
 struct TokenOpenBracket
 {
 };
@@ -54,7 +59,7 @@ auto operator==(TokenOpenBracket const& lhs, TokenOpenBracket const& rhs)
 auto operator==(TokenClosedBracket const& lhs, TokenClosedBracket const& rhs)
     -> bool;
 
-/*
+/**
  * A lexer geared heavily towards the sort of input for a calculator, not a
  * general programming language.
  *

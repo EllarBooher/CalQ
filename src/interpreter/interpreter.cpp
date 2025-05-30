@@ -1,4 +1,4 @@
-#include "mathinterpreter.h"
+#include "interpreter.h"
 
 #include "lexer.h"
 #include "math/number.h"
@@ -47,23 +47,18 @@ auto Interpreter::interpret(std::string const& rawInput) const
         return std::unexpected(InterpretError::LexError);
     }
 
-    auto const statement = Parser::parse(m_functions, tokens.value());
-    if (!statement.has_value())
+    auto const expression = Parser::parse(m_functions, tokens.value());
+    if (!expression.has_value())
     {
         return std::unexpected(InterpretError::ParseError);
     }
 
-    auto const evaluated = statement.value().evaluate();
+    auto const evaluated = expression.value().evaluate();
     if (!evaluated.has_value())
     {
         return std::unexpected(InterpretError::EvaluationError);
     }
 
     return evaluated.value();
-}
-
-auto Interpreter::functions() const -> FunctionDatabase const&
-{
-    return m_functions;
 }
 } // namespace calqmath

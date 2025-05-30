@@ -71,11 +71,11 @@ auto tokenIsNumber(calqmath::Token const& token) -> bool
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 auto calqmath::Parser::parse(
     FunctionDatabase const& functions, std::span<Token const> const input
-) -> std::optional<calqmath::Statement>
+) -> std::optional<calqmath::Expression>
 {
-    std::optional<Statement> result{Statement{}};
+    std::optional<Expression> result{Expression{}};
 
-    std::stack<Statement*> depthStack{{&result.value()}};
+    std::stack<Expression*> depthStack{{&result.value()}};
 
     std::deque<Token> tokens{input.begin(), input.end()};
 
@@ -131,12 +131,12 @@ auto calqmath::Parser::parse(
                 }
                 tokens.pop_front();
 
-                auto& newStatement = std::get<Statement>(
-                    depthStack.top()->backTerm() = Statement{}
+                auto& newExpression = std::get<Expression>(
+                    depthStack.top()->backTerm() = Expression{}
                 );
-                depthStack.push(&newStatement);
+                depthStack.push(&newExpression);
 
-                newStatement.setNegate(negate);
+                newExpression.setNegate(negate);
 
                 if (functionName.has_value())
                 {
@@ -146,7 +146,7 @@ auto calqmath::Parser::parse(
                         return std::nullopt;
                     }
 
-                    newStatement.setFunction(std::move(functionLookup).value());
+                    newExpression.setFunction(std::move(functionLookup).value());
                 }
 
                 expectNewTerm = true;
