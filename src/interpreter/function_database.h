@@ -36,7 +36,7 @@ public:
 
     [[nodiscard]] auto unaryNames() const
     {
-        return std::views::keys(m_unaryFunctions) | std::views::as_const;
+        return std::views::keys(m_unaryFunctions);
     }
 
 private:
