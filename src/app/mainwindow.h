@@ -1,8 +1,11 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QQuickWidget>
+#include <QScatterSeries>
 #include <QStringList>
 #include <QStringListModel>
+// #include <QWidget>
 
 namespace calqmath
 {
@@ -35,4 +38,6 @@ private:
     std::unique_ptr<QStringList> m_messages;
     std::unique_ptr<QStringListModel> m_messagesModel;
     std::unique_ptr<calqmath::Interpreter> m_interpreter;
+    std::unique_ptr<QScatterSeries> m_series;
+    std::unique_ptr<QQuickWidget> m_graph;
 };

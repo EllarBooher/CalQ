@@ -2,6 +2,12 @@
 #include "interpreter/interpreter.h"
 #include "ui_mainwindow.h"
 
+// #include <QFileInfo>
+#include <QQmlContext>
+// #include <QQmlEngine>
+// #include <QQuickWidget>
+// #include <QScatterDataProxy>
+
 #include <QLineEdit>
 #include <QMainWindow>
 #include <QString>
@@ -18,13 +24,13 @@ MainWindow::MainWindow(QWidget* parent)
 {
     m_ui->setupUi(this);
     connect(
-        m_ui->lineEdit,
+        m_ui->input,
         &QLineEdit::returnPressed,
         this,
         &MainWindow::onLineEnterPressed
     );
     connect(
-        m_ui->lineEdit,
+        m_ui->input,
         &QLineEdit::textEdited,
         this,
         &MainWindow::onLineTextUpdated
@@ -35,7 +41,23 @@ MainWindow::MainWindow(QWidget* parent)
     m_messagesModel->setStringList(*m_messages);
     m_interpreter = std::make_unique<calqmath::Interpreter>();
 
-    m_ui->listView->setModel(m_messagesModel.get());
+    m_graph = std::make_unique<QQuickWidget>();
+
+    m_series = std::make_unique<QScatterSeries>();
+    m_series->append(QList<QPointF>{{0.5F, 0.5F}, {-0.3F, -0.5F}, {0.0F, -0.3F}}
+    );
+
+    m_graph->engine()->rootContext()->setContextProperty(
+        "series", m_series.get()
+    );
+    m_graph->setSource(QUrl("qrc:/src/app/graph.qml"));
+
+    // QSize const screenSize = m_graph->screen()->size();
+    m_graph->setResizeMode(QQuickWidget::SizeRootObjectToView);
+
+    m_ui->parentHLayout->layout()->addWidget(m_graph.get());
+
+    m_ui->history->setModel(m_messagesModel.get());
 
     resetPreviewLabels();
 }
@@ -67,7 +89,7 @@ auto toString(
 
 void MainWindow::onLineEnterPressed()
 {
-    QString const newMessage = m_ui->lineEdit->text().trimmed();
+    QString const newMessage = m_ui->input->text().trimmed();
     if(newMessage.isEmpty())
     {
         return;
@@ -82,7 +104,7 @@ void MainWindow::onLineEnterPressed()
     m_messages->append(::toString(mathResult));
 
     m_messagesModel->setStringList(*m_messages);
-    m_ui->lineEdit->clear();
+    m_ui->input->clear();
 
     resetPreviewLabels();
 }
@@ -107,12 +129,12 @@ void MainWindow::setPreviewLabels(
     QString const& equation, QString const& result
 )
 {
-    m_ui->labelEquation->setText("> " + equation);
-    m_ui->labelResult->setText(result);
+    m_ui->equation->setText("> " + equation);
+    m_ui->result->setText(result);
 }
 
 void MainWindow::resetPreviewLabels()
 {
-    m_ui->labelEquation->setText("> [Equation Preview]");
-    m_ui->labelResult->setText(" [Result Preview]");
+    m_ui->equation->setText("> [Equation Preview]");
+    m_ui->result->setText(" [Result Preview]");
 };

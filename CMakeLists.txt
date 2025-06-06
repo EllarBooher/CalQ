@@ -1,45 +1,31 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.21)
 project(CalQ LANGUAGES CXX)
 
 ################################################################################
 # USAGE
 ################################################################################
 #
-# See ./scripts/ for interactive powershell scripts that assist with building.
-#
-# 1) When using vcpkg preset, set environment variable VCPKG_ROOT to the root
-#    of your vcpkg installation.
-# 2) Ensure all tooling is on your PATH environment variable, depending on the
-#    build environment. This includes:
-#     - Qt CMake script discoverable by FindPackage
-#     - Generator compatible with Qt
-#     - C++ compiler
-#     - powershell (as required by vcpkg)
-#
-#    Example of a minimal PATH variable when building for vcpkg plus MinGW:
-#        PATH = C:\Qt\Tools\mingw1310_64\bin;
-#               C:\Qt\Tools\Ninja;
-#               C:\Qt\6.9.0\mingw_64;
-#               C:\Windows\System32\WindowsPowerShell\v1.0
-#
-# Optional steps
-# a) Make sure CLANG_TIDY is on your PATH in a way that can be discovered by
-#    CMake. Alternatively, once configured, set the CLANG_TIDY cache variable
-#    to the path of your desired clang-tidy executable, and set CLANG_TIDY_ENABLE
-#    to ON.
+# See ./scripts/ for interactive powershell scripts that assist with building,
+# and README.md for a walkthrough of building with CMake manually.
 #
 ################################################################################
 
 # Load our FindGMP script for find_package
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Test)
+find_package(Qt6 6.9 REQUIRED COMPONENTS Core Widgets Quick Test Graphs QuickWidgets)
+
+qt_policy(SET QTP0001 NEW)
+qt_policy(SET QTP0004 NEW)
 
 set(MPFR_USE_STATIC_LIBS ON)
 find_package(MPFR REQUIRED)
 set(vendor_include_dir "${CMAKE_SOURCE_DIR}/vendor")
 
 qt_standard_project_setup()
+
+# Use Qt resources system to avoid having to track where .qml files go
+qt_add_resources(RCC_SOURCES resources.qrc)
 
 ################################################################################
 # CalQMath
@@ -82,12 +68,14 @@ target_link_libraries(CalQInterpreter PRIVATE CalQMath)
 
 qt_add_executable(CalQApp
   WIN32 MACOSX_BUNDLE
+  ${RCC_SOURCES}
   src/app/main.cpp
   src/app/mainwindow.cpp src/app/mainwindow.h src/app/mainwindow.ui
+  src/app/graph.qml
 )
 set_target_properties(CalQApp PROPERTIES CXX_STANDARD 23 OUTPUT_NAME CalQ)
 target_include_directories(CalQApp PRIVATE src/)
-target_link_libraries(CalQApp PRIVATE Qt::Core Qt::Widgets CalQInterpreter)
+target_link_libraries(CalQApp PRIVATE Qt::Core Qt::Widgets Qt::QuickWidgets Qt::Graphs CalQInterpreter)
 
 ################################################################################
 # CalQTest
@@ -120,6 +108,15 @@ install(TARGETS CalQApp CalQTest
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
+
+# Patch in compiler DLLs for Clang on Windows, obtained via LLVM MinGW install.
+# windeployqt only explicitely supports MSVC/g++ as of 6.9.1.
+if((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND WIN32)
+  message(STATUS "Installing DLLs for Clang.")
+  get_filename_component(llvm_path ${CMAKE_CXX_COMPILER} PATH)
+  set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS ${llvm_path}/libc++.dll ${llvm_path}/libunwind.dll)
+endif()
+include(InstallRequiredSystemLibraries)
 
 qt_generate_deploy_app_script(
   TARGET CalQApp
