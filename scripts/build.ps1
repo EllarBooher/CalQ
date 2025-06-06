@@ -19,7 +19,7 @@ param (
     $SrcDir = ".",
     [Parameter(Mandatory)]
     [string]
-    # Root directory of Qt installation, with version number.
+    # Root directory of Qt installation, e.g. /path/to/qt/6.9.1/gcc_64. Can be relative.
     $QtDir,
     [Parameter(Mandatory)]
     [string]
@@ -35,14 +35,13 @@ param (
     [switch]
     # If set and the build tree already exists, CMake clean will be ran.
     $Clean,
-    [Parameter(Mandatory)]
-    [ValidateSet("MinGW", "MSVC")]
-    [string]
-    # The platform to target: MinGW or MSVC.
-    $TargetPlatform,
     [switch]
     # Log all commands instead of executing them.
     $DryRun,
+    [Parameter(Mandatory)]
+    [string]
+    # Name of the CMake preset to use
+    $CMakePreset,
     [string]
     # A path to prefix to env:PATH, to help discovery of tools.
     $PathPrefix,
@@ -59,9 +58,8 @@ function MyLog() {
     }
 }
 
-$preset = if($TargetPlatform -eq "MinGW") { "x64-windows-mingw" } else { "x64-windows-msvc" }
 if($OutDir -eq "") {
-    $OutDir = Join-Path "./build/" $preset
+    $OutDir = Join-Path "./build/" $CMakePreset
 }
 if(-not $(Test-Path $OutDir)) {
     "Output directory does not exist, creating '$OutDir'."
@@ -79,32 +77,15 @@ if(-not $DryRun) {
 
 if(-not $(Test-Path $SrcDir)) {
     "Could not find source directory at '$SrcDir' - Folder does not exist. Now exiting."
-    Exit
+    exit 1
 }
 $SrcDir = Resolve-Path $SrcDir
 
 if(-not $(Test-Path $QtDir)) {
     "Could not find Qt installed at '$QtDir' - Folder does not exist. Now exiting."
-    Exit
+    exit 1
 }
 $QtDir = Resolve-Path $QtDir
-
-if($TargetPlatform -eq "MinGW") {
-    $QtDir = Join-Path $QtDir "mingw_64"
-} else {
-# We could search for a specific version based on the Qt version, but this is simpler
-    "Searching for Qt MSVC install dir, with regex pattern 'msvc.*_64'"
-    $QtVersions = (Get-ChildItem $QtDir) -match "msvc.*_64" | Sort-Object -Descending
-    "Found $($QtVersions.Length), sorted in descending order:"
-    "    $QtVersions"
-    "Choosing highest version number."
-    $QtDir = Join-Path $QtDir $QtVersions[0]
-}
-
-if(-not $(Test-Path $QtDir)) {
-    "Could not find Qt for selected platform at '$QtDir' - Folder does not exist. Now exiting."
-    Exit
-}
 
 $Path = "$PathPrefix;$QtDir;$PSHome"
 
@@ -169,11 +150,11 @@ if((Get-ChildItem $OutDir).Length -gt 0) {
 ">>> & $CMake ``
         -S $SrcDir ``
         -B $OutDir ``
-        --preset $preset"
+        --preset $CMakePreset"
 if($DryRun) {
     "[[[ -DryRun skipped ]]]"
 } else {
-    & $CMake -S $SrcDir -B $OutDir --preset $preset | MyLog
+    & $CMake -S $SrcDir -B $OutDir --preset $CMakePreset | MyLog
 }
 if($LASTEXITCODE -ne 0)
 {
@@ -203,7 +184,7 @@ if($DryRun) {
     {
         ""
         "Building failed, now exiting."
-        exit
+        exit 1
     }
 }
 
@@ -244,7 +225,7 @@ if($DryRun) {
     {
         ""
         "Installing failed, now exiting."
-        exit
+        exit 1
     }
 }
 

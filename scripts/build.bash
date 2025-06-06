@@ -22,7 +22,7 @@ options:
     --dry-run                      If set, all commands are logged instead of executing them.
 
 example:
-    ./scripts/build.bash --qt-dir ~/qt/6.9.0 --cmake ~/qt/Tools/CMake/bin/cmake --build-config Debug --vcpkg-root /opt/vcpkg
+    ./scripts/build.bash --qt-dir ~/qt/6.9.1/gcc_64 --cmake ~/qt/Tools/CMake/bin/cmake --build-config Debug --vcpkg-root /opt/vcpkg
 "
 
 TEMP=$(getopt -l 'out-dir:,src-dir:,qt-dir:,cmake:,build-config:,vcpkg-root:,force-clean,clean,dry-run,help' -n 'build.bash' -- "h" "$@")
@@ -150,7 +150,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-QT_DIR_temp=$(realpath -L "${QT_DIR/#\~/${HOME}}/gcc_64")
+QT_DIR_temp=$(realpath -L "${QT_DIR/#\~/${HOME}}")
 if [ $? -ne 0 ]; then
     echo "QT_DIR=$QT_DIR is invalid, terminating..."
     exit 1

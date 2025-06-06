@@ -3,7 +3,7 @@
     Builds all targets supported by the project, using Ubuntu on WSL for native Linux targets. CalQTest is also ran and checked for success, although this script does not reflect success/failure in its return value.
 
 .EXAMPLE
-    ./scripts/build_all.ps1 -OutDir ./build/build_all -PathPrefix "C:\Qt\Tools\QtCreator\bin\clang\bin;C:\Qt\Tools\Ninja;C:\Qt\Tools\mingw1310_64\bin" -QtDir C:\Qt\6.9.0 -CMake C:\Qt\Tools\CMake_64\bin\cmake.exe -WSLQtDir ~/qt/6.9.0 -WSLCMake ~/qt/Tools/CMake/bin/cmake -WSLVCPKGRoot /opt/vcpkg
+    ./scripts/build_all.ps1 -OutDir ./build/build_all -PathPrefix "C:\Qt\Tools\QtCreator\bin\clang\bin;C:\Qt\Tools\Ninja;C:\Qt\Tools\llvm-mingw1706_64\bin" -QtDir C:\Qt\6.9.1 -CMake C:\Qt\Tools\CMake_64\bin\cmake.exe -WSLQtDir ~/qt/6.9.1/gcc_64 -WSLCMake ~/qt/Tools/CMake/bin/cmake -WSLVCPKGRoot /opt/vcpkg
 #>
 
 param (
@@ -13,7 +13,11 @@ param (
 $OutDir,
 [Parameter(Mandatory)]
 [string]
-# Root directory of Qt installation, with version number.
+# The CMake build config e.g. Debug, Release.
+$BuildConfig,
+[Parameter(Mandatory)]
+[string]
+# Root directory of Qt installations, with version number. Should contain all necessary installations.
 $QtDir,
 [Parameter(Mandatory)]
 [string]
@@ -58,9 +62,21 @@ function MyLog() {
 "***************************************"
 ""
 
-"Building x64-windows-msvc..."
+"Building x64-windows-msvc msvc2022_64 install..."
 ""
-Powershell -ExecutionPolicy Bypass -Command "& '$PSScriptRoot\build.ps1' -OutDir '$OutDir/x64-windows-msvc' -QtDir '$QtDir' -CMake '$CMake' -BuildConfig Debug -TargetPlatform MSVC -PathPrefix '$PathPrefix' -ForceClean:`$$ForceClean -Clean:`$$Clean" `
+$build_command = @"
+& '$PSScriptRoot\build.ps1'
+    -OutDir '$OutDir/x64-windows-msvc'
+    -QtDir '$QtDir/msvc2022_64'
+    -CMake '$CMake'
+    -BuildConfig '$BuildConfig'
+    -CMakePreset x64-windows-msvc
+    -PathPrefix '$PathPrefix'
+    -ForceClean:`$$ForceClean
+    -Clean:`$$Clean
+"@
+">>> $build_command"
+Powershell -ExecutionPolicy Bypass -Command $build_command.replace("`n","").replace("`r","") `
     | %{ "[x64-windows-msvc]    $_" } `
     | MyLog
 if($?) {
@@ -74,9 +90,21 @@ if($?) {
 
 ""
 
-"Building x64-windows-mingw..."
+"Building x64-windows-mingw with llvm-mingw_64 install..."
 ""
-Powershell -ExecutionPolicy Bypass -Command "& '$PSScriptRoot\build.ps1' -OutDir '$OutDir/x64-windows-mingw' -QtDir '$QtDir' -CMake '$CMake' -BuildConfig Debug -TargetPlatform MinGW -PathPrefix '$PathPrefix' -ForceClean:`$$ForceClean -Clean:`$$Clean" `
+$build_command = @"
+& '$PSScriptRoot\build.ps1'
+    -OutDir '$OutDir/x64-windows-mingw'
+    -QtDir '$QtDir/llvm-mingw_64'
+    -CMake '$CMake'
+    -BuildConfig '$BuildConfig'
+    -CMakePreset x64-windows-mingw
+    -PathPrefix '$PathPrefix'
+    -ForceClean:`$$ForceClean
+    -Clean:`$$Clean
+"@
+">>> $build_command"
+Powershell -ExecutionPolicy Bypass -Command $build_command.replace("`n","").replace("`r","") `
     | %{ "[x64-windows-mingw]    $_" } `
     | MyLog
 if($?) {
@@ -89,7 +117,7 @@ if($?) {
 }
 ""
 
-# Clearing path speeds up compilation.
+# Clearing path speeds up compilation, and WSL installations should not depend on host-side system libraries.
 $WSLBin = $(Get-Command wsl).Source
 $OldPATH = $env:PATH
 try {
@@ -100,7 +128,18 @@ try {
     $WSLScriptPath = Invoke-Expression "& '$WSLBin' wslpath -a -u $ScriptPathUnixed"
     $ForceCleanFlag = if($ForceClean) { "--force-clean" }
     $CleanFlag = if($Clean) { "--clean" }
-    Invoke-Expression "& '$WSLBin' $WSLScriptPath --out-dir '$OutDir/x64-linux' --qt-dir '$WSLQtDir' --cmake '$WSLCMake' --vcpkg-root '$WSLVCPKGRoot' --build-config Debug $ForceCleanFlag $CleanFlag" `
+    $build_command = @"
+& '$WSLBin' $WSLScriptPath
+    --out-dir '$OutDir/x64-linux'
+    --qt-dir '$WSLQtDir'
+    --cmake '$WSLCMake'
+    --vcpkg-root '$WSLVCPKGRoot'
+    --build-config $BuildConfig
+    $ForceCleanFlag
+    $CleanFlag
+"@
+    ">>> $build_command"
+    Invoke-Expression $build_command.replace("`n","").replace("`r","") `
         | %{ "[x64-linux]    $_" } `
         | MyLog
     if($LASTEXITCODE -eq 0) {
@@ -122,7 +161,7 @@ try {
 ""
 
 if($MSVCSuccess) {
-    $MSVCBin = "$OutDir/x64-windows-msvc/deploy/Debug/bin/CalQTest.exe"
+    $MSVCBin = "$OutDir/x64-windows-msvc/deploy/$BuildConfig/bin/CalQTest.exe"
     "Testing x64-windows-msvc at '$MSVCBin'..."
     ""
     Invoke-Expression "& '$MSVCBin'"
@@ -135,7 +174,7 @@ if($MSVCSuccess) {
 ""
 
 if ($MinGWSuccess) {
-    $MinGWBin = "$OutDir/x64-windows-msvc/deploy/Debug/bin/CalQTest.exe"
+    $MinGWBin = "$OutDir/x64-windows-msvc/deploy/$BuildConfig/bin/CalQTest.exe"
     "Testing x64-windows-mingw at '$MinGWBin'..."
     ""
     Invoke-Expression "& '$MinGWBin'"
@@ -148,7 +187,7 @@ if ($MinGWSuccess) {
 ""
 
 if($LinuxSuccess) {
-    $LinuxBin = "$OutDir/x64-linux/deploy/Debug/bin/CalQTest"
+    $LinuxBin = "$OutDir/x64-linux/deploy/$BuildConfig/bin/CalQTest"
     "Testing x64-linux at '$LinuxBin'..."
     ""
     wsl $(wsl wslpath -a -u "$LinuxBin".Replace('\','\\'))
