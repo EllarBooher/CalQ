@@ -1,14 +1,13 @@
 #include "lexer.h"
 
 #include <cassert>
-#include <cstring>
 #include <deque>
 #include <ranges>
 #include <utility>
 
 namespace calqmath
 {
-auto operator==(TokenFunction const& lhs, TokenFunction const& rhs) -> bool
+auto operator==(TokenIdentifier const& lhs, TokenIdentifier const& rhs) -> bool
 {
     return lhs.m_functionName == rhs.m_functionName;
 };
@@ -84,15 +83,15 @@ auto popTokenOffFront(std::deque<char>& trimmed)
     }
     else if (isAlpha(character))
     {
-        std::string functionName{character};
+        std::string identifier{character};
         while (!trimmed.empty()
                && (isAlpha(trimmed.front()) || digits.contains(trimmed.front()))
         )
         {
-            functionName += trimmed.front();
+            identifier += trimmed.front();
             trimmed.pop_front();
         };
-        emitted = calqmath::TokenFunction{std::move(functionName)};
+        emitted = calqmath::TokenIdentifier{std::move(identifier)};
     }
     else if (digits.contains(character) || character == decimal)
     {

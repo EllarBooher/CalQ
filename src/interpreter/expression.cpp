@@ -125,7 +125,7 @@ auto Expression::string() const -> std::string
     return output;
 }
 
-auto Expression::evaluate() const -> std::optional<Scalar>
+auto Expression::evaluate(Scalar const& variable) const -> std::optional<Scalar>
 {
     if (!valid())
     {
@@ -140,7 +140,7 @@ auto Expression::evaluate() const -> std::optional<Scalar>
     std::deque<Scalar> terms{};
     for (size_t termIndex = 0; termIndex < m_terms.size(); termIndex++)
     {
-        auto const evaluateResult = evaluateTerm(termIndex);
+        auto const evaluateResult = evaluateTerm(termIndex, variable);
         if (!evaluateResult.has_value())
         {
             return std::nullopt;
@@ -286,18 +286,23 @@ auto Expression::stringTerm(size_t index) const -> std::string
         [](Scalar const& number) { return number.toString(); },
         [](Expression const& expression)
     { return "(" + expression.string() + ")"; },
+        [](InputVariable const&)
+    { return std::string{InputVariable::RESERVED_NAME}; }
     };
 
     return std::visit(visitor, *m_terms[index]);
 }
 
-auto Expression::evaluateTerm(size_t index) const -> std::optional<Scalar>
+auto Expression::evaluateTerm(size_t index, Scalar const& variable) const
+    -> std::optional<Scalar>
 {
     assert(index < m_terms.size() || m_terms[index] != nullptr);
 
     auto const visitor = overloads{
         [](Scalar const& number) { return std::optional{number}; },
-        [](Expression const& expression) { return expression.evaluate(); }
+        [&](Expression const& expression)
+    { return expression.evaluate(variable); },
+        [&](InputVariable const&) { return std::optional{variable}; }
     };
 
     return std::visit(visitor, *m_terms[index]);

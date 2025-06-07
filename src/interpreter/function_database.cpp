@@ -1,7 +1,9 @@
 #include "function_database.h"
 
 #include "math/functions.h"
-#include <cmath>
+#include <cassert>
+
+constexpr char const* RESERVED_FUNCTION_NAME = "x"; // Identifier for variable
 
 namespace calqmath
 {
@@ -28,6 +30,8 @@ auto FunctionDatabase::createWithDefaults() -> FunctionDatabase
         {"tanh", Functions::tanh},   {"asinh", Functions::asinh},
         {"acosh", Functions::acosh}, {"atanh", Functions::atanh},
     };
+
+    assert(!result.m_unaryFunctions.contains(RESERVED_FUNCTION_NAME));
 
     return result;
 }

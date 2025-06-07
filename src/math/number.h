@@ -69,10 +69,12 @@ public:
     [[nodiscard]] auto toMantissaExponent() const
         -> std::tuple<std::string, ptrdiff_t>;
 
+    static auto zero() -> Scalar;
     static auto nan() -> Scalar;
     static auto positiveInf() -> Scalar;
     static auto negativeInf() -> Scalar;
 
+    static constexpr char const* ZERO_REPRESENTATION = "0";
     static constexpr char const* NAN_REPRESENTATION = "NaN";
     static constexpr char const* POSITIVE_INFINITY_REPRESENTATION = "Inf";
     static constexpr char const* NEGATIVE_INFINITY_REPRESENTATION = "-Inf";

@@ -100,7 +100,7 @@ auto QTest::toString(std::vector<calqmath::Token> const& tokens) -> char*
     for (size_t i = 0; i < tokens.size(); i++)
     {
         auto const visitors{overloads{
-            [&](calqmath::TokenFunction const& name)
+            [&](calqmath::TokenIdentifier const& name)
         {
             output += "f'";
             output += name.m_functionName;
@@ -350,6 +350,11 @@ void testScalarOperators()
 void testNonOrdinaryScalarStringify()
 {
     QCOMPARE(
+        calqmath::Scalar::zero().toString(),
+        calqmath::Scalar::ZERO_REPRESENTATION
+    );
+
+    QCOMPARE(
         calqmath::Scalar::nan().toString(), calqmath::Scalar::NAN_REPRESENTATION
     );
 
@@ -428,20 +433,21 @@ void testLexerNumbers()
 }
 void testLexerFunctionsAndNumbers()
 {
-    using calqmath::TokenFunction;
+    using calqmath::TokenIdentifier;
     using calqmath::TokenNumber;
     using TestCase = std::tuple<std::string, std::vector<calqmath::Token>>;
     std::vector<TestCase> const cases{
-        {"sin", {TokenFunction{"sin"}}},
+        {"sin", {TokenIdentifier{"sin"}}},
         {"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
-         {TokenFunction{"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"}}
+         {TokenIdentifier{"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+         }}},
+        {"sin12345678901234567890", {TokenIdentifier{"sin12345678901234567890"}}
         },
-        {"sin12345678901234567890", {TokenFunction{"sin12345678901234567890"}}},
-        {"123sin", {TokenNumber{"123"}, TokenFunction{"sin"}}},
-        {"sin123", {TokenFunction{"sin123"}}},
-        {"sin123sin", {TokenFunction{"sin123sin"}}},
-        {"sin123.456", {TokenFunction{"sin123"}, TokenNumber{".456"}}},
-        {"0.0sin", {TokenNumber{"0.0"}, TokenFunction{"sin"}}},
+        {"123sin", {TokenNumber{"123"}, TokenIdentifier{"sin"}}},
+        {"sin123", {TokenIdentifier{"sin123"}}},
+        {"sin123sin", {TokenIdentifier{"sin123sin"}}},
+        {"sin123.456", {TokenIdentifier{"sin123"}, TokenNumber{".456"}}},
+        {"0.0sin", {TokenNumber{"0.0"}, TokenIdentifier{"sin"}}},
     };
     for (auto const& [input, output] : cases)
     {
@@ -480,6 +486,56 @@ void testLexerMisc()
     {
         auto const tokens = calqmath::Lexer::convert(input);
         QVERIFY(!tokens.has_value());
+    }
+}
+void testLexerVariable()
+{
+    calqmath::TokenIdentifier const variableToken{
+        .m_functionName = calqmath::InputVariable::RESERVED_NAME
+    };
+
+    using TestCase = std::pair<std::string, std::vector<calqmath::Token>>;
+    std::vector<TestCase> const testCases{
+        {"x", {variableToken}},
+        {"1+x",
+         {calqmath::TokenNumber{.m_decimalRepresentation = "1"},
+          calqmath::TokenOperator::Plus,
+          variableToken}},
+    };
+
+    for (auto const& [input, expected] : testCases)
+    {
+        auto const tokens = calqmath::Lexer::convert(input);
+        QCOMPARE(tokens, expected);
+    }
+}
+
+void testInterpretVariable(calqmath::FunctionDatabase const& functions)
+{
+    using calqmath::Scalar;
+
+    Scalar const variable{"2.5"};
+
+    using TestCase = std::pair<std::string, calqmath::Scalar>;
+    std::vector<TestCase> const testCases{
+        {"x", Scalar{"2.5"}},
+        {"1+x", Scalar{"3.5"}},
+        {"x+1", Scalar{"3.5"}},
+        {"2 * x", Scalar{"5.0"}},
+        {"x / 2", Scalar{"1.25"}},
+    };
+
+    for (auto const& [input, expected] : testCases)
+    {
+        auto const tokens = calqmath::Lexer::convert(input);
+        QVERIFY(tokens.has_value());
+
+        auto const expression =
+            calqmath::Parser::parse(functions, tokens.value());
+        QVERIFY(expression.has_value());
+
+        auto const result = expression.value().evaluate(variable);
+        QCOMPARE(result, expected);
     }
 }
 
@@ -550,7 +606,8 @@ void testParserMisc(calqmath::FunctionDatabase const& functions)
 
         auto const actual = calqmath::Parser::parse(functions, tokens.value());
         QVERIFY(actual.has_value());
-        // Test both functions, although this would be redundant in actual code
+        // Test both functions, although this would be redundant in actual
+        // code
         QCOMPARE(actual.value().termCount(), termCount);
         QVERIFY(actual.value().empty() == (termCount == 0));
     }
@@ -721,12 +778,14 @@ void TestMathInterpreter::test()
     testLexerFunctionsAndNumbers();
     testLexerSingleCharacterTokens();
     testLexerMisc();
+    testLexerVariable();
 
     auto const functions{calqmath::FunctionDatabase::createWithDefaults()};
     testParserParantheses(functions);
     testParserMisc(functions);
     testParserFunctions(functions);
 
+    testInterpretVariable(functions);
     testInterpretNonOrdinaryScalars(functions);
     testInterpretMixedNegation(functions);
     testInterpret(interpreter);

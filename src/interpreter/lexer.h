@@ -9,7 +9,7 @@
 namespace calqmath
 {
 // Function name identifier. We have no general identifier type.
-struct TokenFunction
+struct TokenIdentifier
 {
     std::string m_functionName;
 };
@@ -46,13 +46,13 @@ struct TokenClosedBracket
 };
 
 using Token = std::variant<
-    TokenFunction,
+    TokenIdentifier,
     TokenNumber,
     TokenOpenBracket,
     TokenClosedBracket,
     TokenOperator>;
 
-auto operator==(TokenFunction const& lhs, TokenFunction const& rhs) -> bool;
+auto operator==(TokenIdentifier const& lhs, TokenIdentifier const& rhs) -> bool;
 auto operator==(TokenNumber const& lhs, TokenNumber const& rhs) -> bool;
 auto operator==(TokenOpenBracket const& lhs, TokenOpenBracket const& rhs)
     -> bool;

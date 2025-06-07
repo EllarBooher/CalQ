@@ -21,8 +21,15 @@ enum class BinaryOp : uint8_t
     Divide
 };
 
+// A variable input, indicating it should be substituted for an externally
+// provided value. There is a single variable across a single expression.
+struct InputVariable : std::monostate
+{
+    static constexpr char const* RESERVED_NAME = "x";
+};
+
 class Expression;
-using Term = std::variant<Expression, Scalar>;
+using Term = std::variant<Expression, Scalar, InputVariable>;
 
 /*
  * An AST of a mathematical expression, where the nodes are terms in
@@ -74,7 +81,8 @@ public:
      * @return The result of the evaluation. If the tree was invalid or some
      * other error occured, returns nullopt.
      */
-    [[nodiscard]] auto evaluate() const -> std::optional<Scalar>;
+    [[nodiscard]] auto evaluate(Scalar const& variable = Scalar::zero()) const
+        -> std::optional<Scalar>;
 
     [[nodiscard]] auto termCount() const -> size_t;
 
@@ -139,7 +147,7 @@ public:
 
 private:
     [[nodiscard]] auto stringTerm(size_t index) const -> std::string;
-    [[nodiscard]] auto evaluateTerm(size_t index) const
+    [[nodiscard]] auto evaluateTerm(size_t index, Scalar const& variable) const
         -> std::optional<Scalar>;
 
     // Negate the expression's evaluated value as the final step.

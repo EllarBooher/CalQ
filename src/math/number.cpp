@@ -116,6 +116,14 @@ auto Scalar::toMantissaExponent() const -> std::tuple<std::string, ptrdiff_t>
     return result;
 }
 
+Scalar Scalar::zero()
+{
+    Scalar result{};
+    // +1 indicates positive zero
+    mpfr_set_zero(result.p_impl.get(), 1);
+    return result;
+}
+
 auto Scalar::nan() -> Scalar
 {
     Scalar result{};

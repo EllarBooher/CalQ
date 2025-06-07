@@ -41,10 +41,11 @@ auto tokenIsMinus(calqmath::Token const& token) -> bool
         && (*pOperator) == calqmath::TokenOperator::Minus;
 }
 
-auto tokenIsFunction(calqmath::Token const& token) -> bool
+auto tokenIsIdentifier(calqmath::Token const& token) -> bool
 {
-    auto const* const pFunction = std::get_if<calqmath::TokenFunction>(&token);
-    return pFunction != nullptr;
+    auto const* const pIdentifier =
+        std::get_if<calqmath::TokenIdentifier>(&token);
+    return pIdentifier != nullptr;
 }
 
 auto tokenIsOpenBracket(calqmath::Token const& token) -> bool
@@ -111,18 +112,38 @@ auto calqmath::Parser::parse(
                 return std::nullopt;
             }
 
-            if (::tokenIsFunction(tokens.front())
-                || ::tokenIsOpenBracket(tokens.front()))
+            if (::tokenIsIdentifier(tokens.front())
+                && std::get<TokenIdentifier>(tokens.front()).m_functionName
+                       == InputVariable::RESERVED_NAME)
+            {
+                tokens.pop_front();
+
+                // Variable 'x' appears where we expect a new team. E.g,
+                // semantically swap like 5+2 <-> 5+x.
+                if (negate)
+                {
+                    // Eventually this should not be an error, something like 5
+                    // * -x should be allowed. But, we don't want to handle that
+                    // yet.                                        return
+
+                    return std::nullopt;
+                }
+
+                depthStack.top()->backTerm() = InputVariable{};
+                expectNewTerm = false;
+            }
+            else if (::tokenIsIdentifier(tokens.front())
+                     || ::tokenIsOpenBracket(tokens.front()))
             {
                 std::optional<std::string> functionName{};
-                if (::tokenIsFunction(tokens.front()))
+                if (::tokenIsIdentifier(tokens.front()))
                 {
-                    TokenFunction const function{
-                        std::get<TokenFunction>(tokens.front())
+                    TokenIdentifier const token{
+                        std::get<TokenIdentifier>(tokens.front())
                     };
                     tokens.pop_front();
 
-                    functionName = function.m_functionName;
+                    functionName = token.m_functionName;
                 }
 
                 if (tokens.empty() || !::tokenIsOpenBracket(tokens.front()))
@@ -146,7 +167,8 @@ auto calqmath::Parser::parse(
                         return std::nullopt;
                     }
 
-                    newExpression.setFunction(std::move(functionLookup).value());
+                    newExpression.setFunction(std::move(functionLookup).value()
+                    );
                 }
 
                 expectNewTerm = true;
