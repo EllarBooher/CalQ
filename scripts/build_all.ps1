@@ -3,7 +3,31 @@
     Builds all targets supported by the project, using Ubuntu on WSL for native Linux targets. CalQTest is also ran and checked for success, although this script does not reflect success/failure in its return value.
 
 .EXAMPLE
-    ./scripts/build_all.ps1 -OutDir ./build/build_all -PathPrefix "C:\Qt\Tools\QtCreator\bin\clang\bin;C:\Qt\Tools\Ninja;C:\Qt\Tools\llvm-mingw1706_64\bin" -QtDir C:\Qt\6.9.1 -CMake C:\Qt\Tools\CMake_64\bin\cmake.exe -WSLQtDir ~/qt/6.9.1/gcc_64 -WSLCMake ~/qt/Tools/CMake/bin/cmake -WSLVCPKGRoot /opt/vcpkg
+    Building Debug for all platforms:
+        ./scripts/build_all.ps1
+            -OutDir ./build/build_all
+            -PathPrefix "C:\Qt\Tools\QtCreator\bin\clang\bin;C:\Qt\Tools\Ninja;C:\Qt\Tools\llvm-mingw1706_64\bin"
+            -QtDir C:\Qt\6.9.1
+            -CMake C:\Qt\Tools\CMake_64\bin\cmake.exe
+            -WSLQtDir ~/qt/6.9.1/gcc_64
+            -WSLCMake ~/qt/Tools/CMake/bin/cmake
+            -WSLVCPKGRoot /opt/vcpkg
+            -ForceClean
+            -BuildConfig Debug
+
+.EXAMPLE
+    Building Release for all platforms in parallel by first mirroring the repo:
+        ./scripts/build_all.ps1
+            -OutDir ./build/build_all
+            -PathPrefix "C:\Qt\Tools\QtCreator\bin\clang\bin;C:\Qt\Tools\Ninja;C:\Qt\Tools\llvm-mingw1706_64\bin"
+            -QtDir C:\Qt\6.9.1
+            -CMake C:\Qt\Tools\CMake_64\bin\cmake.exe
+            -WSLQtDir ~//qt/6.9.1/gcc_64
+            -WSLCMake ~//qt/Tools/CMake/bin/cmake
+            -WSLVCPKGRoot /opt/vcpkg
+            -ForceClean
+            -BuildConfig Release
+            -Mirror
 #>
 
 param (
@@ -45,7 +69,11 @@ $ForceClean,
 $Clean,
 [switch]
 # Suppress non-error subprocess writes to output.
-$Quiet
+$Quiet,
+[switch]
+# OutDir becomes a copy of the source tree, and working directory becomes that folder, as if you ran the script on a clone of the repo.
+# Useful for a parallel CI build. Ignores hidden directories and build folder.
+$Mirror
 )
 
 function MyLog() {
@@ -54,6 +82,29 @@ function MyLog() {
             $_
         }
     }
+}
+
+$GitDir =  Invoke-Expression "& 'git' rev-parse --show-toplevel"
+if(-not $?)
+{
+    "This is not a git repo, make sure to run this script in the root of the project."
+    exit 1
+}
+
+$SrcDir = ".";
+$Location = Get-Location
+
+try
+{
+if($MirrorDir -ne "")
+{
+    if($ForceClean)
+    {
+        Remove-Item -Recurse './build/build_all'
+    }
+
+    Get-ChildItem "." -Exclude 'build' -Attributes !Hidden | %{ Copy-Item $_ -Destination './build/build_all' -Recurse }
+    Set-Location './build/build_all'
 }
 
 ""
@@ -195,4 +246,7 @@ if($LinuxSuccess) {
     "Tested x64-linux."
 } else {
     "x64-linux build failed, skipping test."
+}
+} finally {
+    Set-Location $Location.Path
 }
