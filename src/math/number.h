@@ -28,7 +28,7 @@ enum class Sign : uint8_t
 class Scalar
 {
 public:
-    explicit Scalar(double const number) = delete;
+    explicit Scalar(double number);
 
     static auto precisionMin() -> size_t;
     static auto precisionMax() -> size_t;
@@ -82,8 +82,9 @@ public:
     [[nodiscard]] auto toString() const -> std::string;
 
     [[nodiscard]] auto sign() const -> Sign;
-
     [[nodiscard]] auto isNaN() const -> bool;
+
+    [[nodiscard]] auto toDouble() const -> double;
 
     auto operator==(Scalar const& rhs) const -> bool;
     auto operator!=(Scalar const& rhs) const -> bool;

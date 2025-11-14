@@ -29,6 +29,14 @@ auto getBignumBackendPrecision(size_t const base) -> size_t
     return precision * std::numbers::ln2 / std::log(base);
 }
 
+Scalar::Scalar(double const number)
+{
+    p_impl = std::make_unique<detail::ScalarImpl>();
+    mpfr_init2(p_impl.get(), mpfr_get_default_prec());
+
+    mpfr_set_d(p_impl.get(), number, mpfr_get_default_rounding_mode());
+}
+
 auto Scalar::precisionMin() -> size_t { return detail::MIN_PRECISION; }
 auto Scalar::precisionMax() -> size_t { return detail::MAX_PRECISION; }
 
@@ -313,6 +321,11 @@ auto Scalar::sign() const -> Sign
 }
 
 auto Scalar::isNaN() const -> bool { return mpfr_nan_p(p_impl.get()); }
+
+auto Scalar::toDouble() const -> double
+{
+    return mpfr_get_d(p_impl.get(), mpfr_get_default_rounding_mode());
+}
 
 auto Scalar::operator==(Scalar const& rhs) const -> bool
 {

@@ -14,7 +14,7 @@ auto FunctionDatabase::createWithDefaults() -> FunctionDatabase
 {
     FunctionDatabase result{};
 
-    result.m_unaryFunctions = std::map<std::string, UnaryFunction>{
+    std::initializer_list<UnaryFunction> const functions = {
         {"id", Functions::id},       {"abs", Functions::abs},
         {"ceil", Functions::ceil},   {"floor", Functions::floor},
         {"round", Functions::round}, {"roundeven", Functions::roundeven},
@@ -32,13 +32,22 @@ auto FunctionDatabase::createWithDefaults() -> FunctionDatabase
         {"acosh", Functions::acosh}, {"atanh", Functions::atanh},
     };
 
-    assert(!result.m_unaryFunctions.contains(RESERVED_FUNCTION_NAME));
+    result.m_unaryFunctions =
+        std::map<std::string, std::shared_ptr<UnaryFunction const>>();
+
+    for (UnaryFunction const& function : functions)
+    {
+        assert(function.name != RESERVED_FUNCTION_NAME);
+
+        result.m_unaryFunctions[function.name] =
+            std::make_shared<UnaryFunction const>(function);
+    }
 
     return result;
 }
 
 auto FunctionDatabase::lookup(std::string const& identifier) const
-    -> std::optional<UnaryFunction>
+    -> std::optional<std::shared_ptr<UnaryFunction const>>
 {
     if (!m_unaryFunctions.contains(identifier))
     {

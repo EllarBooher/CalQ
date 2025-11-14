@@ -29,6 +29,7 @@ auto Expression::operator=(Expression const& other) -> Expression&
         m_terms.push_back(std::make_unique<Term>(*term));
     }
     m_operators = other.m_operators;
+    m_function = other.m_function;
 
     return *this;
 }
@@ -39,6 +40,7 @@ auto Expression::operator=(Expression&& other) noexcept -> Expression&
 {
     m_terms = std::move(other).m_terms;
     m_operators = std::move(other).m_operators;
+    m_function = std::move(other).m_function;
 
     return *this;
 }
@@ -74,6 +76,11 @@ auto Expression::operator==(Expression const& rhs) const -> bool
         {
             return false;
         }
+    }
+
+    if (m_function != rhs.m_function)
+    {
+        return false;
     }
 
     return true;
@@ -120,6 +127,13 @@ auto Expression::string() const -> std::string
         output += mathOperatorToString(m_operators[i]);
         output += ',';
         output += stringTerm(i + 1);
+    }
+
+    if (m_function != nullptr)
+    {
+        assert(m_function->function != nullptr);
+
+        return m_function->name + "(" + output + ")";
     }
 
     return output;
@@ -210,10 +224,11 @@ auto Expression::evaluate(Scalar const& variable) const -> std::optional<Scalar>
     Scalar result = std::move(terms)[0];
 
     // Potentially lots of function overhead here
-    if (m_function.has_value())
+    if (m_function != nullptr)
     {
-        assert(m_function.value() != nullptr);
-        result = m_function.value()(result);
+        assert(m_function->function != nullptr);
+
+        result = m_function->function(result);
     }
 
     if (m_negate)
@@ -246,9 +261,9 @@ auto Expression::reset(Expression&& initial) -> Expression&
 
 void Expression::setNegate(bool negate) { m_negate = negate; }
 
-void Expression::setFunction(UnaryFunction&& function)
+void Expression::setFunction(std::shared_ptr<UnaryFunction const> functionID)
 {
-    m_function = std::move(function);
+    m_function = std::move(functionID);
 }
 
 auto Expression::backTerm() -> Term&
@@ -284,7 +299,7 @@ auto Expression::stringTerm(size_t index) const -> std::string
 
     auto const visitor = overloads{
         [](Scalar const& number) { return number.toString(); },
-        [](Expression const& expression)
+        [&](Expression const& expression)
     { return "(" + expression.string() + ")"; },
         [](InputVariable const&)
     { return std::string{InputVariable::RESERVED_NAME}; }

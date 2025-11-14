@@ -123,7 +123,7 @@ public:
      *
      * @param function
      */
-    void setFunction(UnaryFunction&& function);
+    void setFunction(std::shared_ptr<UnaryFunction const> function);
 
     /**
      * @brief backTerm - Gets the last term in this expressions list of terms,
@@ -153,9 +153,9 @@ private:
     // Negate the expression's evaluated value as the final step.
     bool m_negate{false};
 
-    // A function that is run as the expressions final result. null optional
-    // indicates the identity function, so a no-op.
-    std::optional<UnaryFunction> m_function;
+    // A function that is run as the expressions final result. nullptr indicates
+    // the identity function, aka no-op.
+    std::shared_ptr<UnaryFunction const> m_function;
 
     // A valid expression interleaves terms and operators, or is completely
     // empty

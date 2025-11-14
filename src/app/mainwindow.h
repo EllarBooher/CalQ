@@ -1,10 +1,12 @@
 #pragma once
 
+#include "interpreter/interpreter.h"
 #include <QMainWindow>
 #include <QQuickWidget>
 #include <QScatterSeries>
 #include <QStringList>
 #include <QStringListModel>
+#include <QValueAxis>
 // #include <QWidget>
 
 namespace calqmath
@@ -34,10 +36,15 @@ private slots:
 
     // NOLINTNEXTLINE (readability-redundant-access-specifiers)
 private:
+    void setGraphedExpression(calqmath::Expression const& expression);
+
     std::unique_ptr<Ui::MainWindow> m_ui;
+
     std::unique_ptr<QStringList> m_messages;
     std::unique_ptr<QStringListModel> m_messagesModel;
     std::unique_ptr<calqmath::Interpreter> m_interpreter;
     std::unique_ptr<QScatterSeries> m_series;
+    std::unique_ptr<QValueAxis> m_xAxis;
+    std::unique_ptr<QValueAxis> m_yAxis;
     std::unique_ptr<QQuickWidget> m_graph;
 };

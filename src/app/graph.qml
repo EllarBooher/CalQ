@@ -19,24 +19,7 @@ Item {
         }
         seriesList: series
 
-        axisX: ValueAxis {
-            id:x_axis
-
-            min: -1
-            max: 1
-            tickInterval: 1
-            subTickCount: 1
-            labelDecimals: 3
-        }
-
-        axisY: ValueAxis {
-            id:y_axis
-
-            min: -1
-            max: 1
-            tickInterval: 1
-            subTickCount: 1
-            labelDecimals: 3
-        }
+        axisX: x_axis;
+        axisY: y_axis;
     }
 }

@@ -61,4 +61,35 @@ auto Interpreter::interpret(std::string const& rawInput) const
 
     return evaluated.value();
 }
+
+auto Interpreter::expression(std::string const& rawInput) const
+    -> std::expected<Expression, InterpretError>
+{
+    auto const tokens = Lexer::convert(rawInput);
+    if (!tokens.has_value())
+    {
+        return std::unexpected(InterpretError::LexError);
+    }
+
+    auto const expression = Parser::parse(m_functions, tokens.value());
+    if (!expression.has_value())
+    {
+        return std::unexpected(InterpretError::ParseError);
+    }
+
+    return expression.value();
+}
+
+std::optional<Scalar> Interpreter::evaluate(
+    Expression const& expression, Scalar const& variable
+) const
+{
+    auto const evaluated = expression.evaluate(variable);
+    if (!evaluated.has_value())
+    {
+        return std::nullopt;
+    }
+
+    return evaluated.value();
+}
 } // namespace calqmath

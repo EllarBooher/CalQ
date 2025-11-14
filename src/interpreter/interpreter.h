@@ -1,5 +1,6 @@
 #pragma once
 
+#include "expression.h"
 #include "function_database.h"
 #include <cstdint>
 #include <expected>
@@ -20,7 +21,8 @@ enum class InterpretError : uint8_t
  *
  *     letter     ::= ? ASCII characters a-z and A-Z ?
  *     digit      ::= ? ASCII characters 0-9 ?
- *     function   ::= letter,{letter | digit}
+ *     function   ::= ( letter,{letter | digit} ) - "x"
+ *     variable   ::= "x"
  *     operator   ::= "+" | "-" | "*" | "/"
  *
  *     number     ::= ( {digit} ["."] {digit} ) - "."
@@ -63,6 +65,12 @@ public:
      */
     [[nodiscard]] auto interpret(std::string const& rawInput) const
         -> std::expected<Scalar, InterpretError>;
+
+    [[nodiscard]] auto expression(std::string const& rawInput) const
+        -> std::expected<Expression, InterpretError>;
+
+    [[nodiscard]] auto evaluate(Expression const&, Scalar const&) const
+        -> std::optional<Scalar>;
 
 private:
     FunctionDatabase m_functions;

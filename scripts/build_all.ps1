@@ -69,7 +69,13 @@ $Quiet,
 [switch]
 # OutDir becomes a copy of the source tree, and working directory becomes that folder, as if you ran the script on a clone of the repo.
 # Useful for a parallel CI build. Ignores hidden directories and build folder. OutDir needs to be relative if this is used.
-$Mirror
+$Mirror,
+[switch]
+$SkipMSVC,
+[switch]
+$SkipMinGW,
+[switch]
+$SkipLinux
 )
 
 function MyLog() {
@@ -111,6 +117,7 @@ if($MirrorDir -ne "")
 "***************************************"
 ""
 
+if(-not $SkipMSVC) {
 "Building x64-windows-msvc msvc2022_64 install..."
 ""
 $build_command = @"
@@ -136,7 +143,9 @@ if($?) {
 }
 
 ""
+}
 
+if(-not $SkipMinGW) {
 "Building x64-windows-mingw with llvm-mingw_64 install..."
 ""
 $build_command = @"
@@ -162,7 +171,9 @@ if($?) {
 }
 
 ""
+}
 
+if(-not $SkipLinux) {
 # Clearing path speeds up compilation, and WSL installations should not depend on host-side system libraries.
 $WSLBin = $(Get-Command wsl).Source
 $OldPATH = $env:PATH
@@ -194,6 +205,7 @@ try {
     }
 } finally {
     $env:PATH = $OldPATH
+}
 }
 
 ""

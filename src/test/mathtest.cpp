@@ -282,9 +282,10 @@ void testAllFunctions(
     calqmath::Interpreter const& interpreter
 )
 {
-    for (auto const& name : functions.unaryNames())
+    for (auto const& function : functions.unaryNames())
     {
-        QVERIFY(interpreter.interpret(name + "(1.0)").has_value());
+        QVERIFY(function != nullptr);
+        QVERIFY(interpreter.interpret(function->name + "(1.0)").has_value());
     }
 }
 

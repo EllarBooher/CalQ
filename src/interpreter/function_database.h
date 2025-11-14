@@ -9,7 +9,18 @@
 
 namespace calqmath
 {
-using UnaryFunction = std::function<Scalar(Scalar)>;
+struct UnaryFunction
+{
+    UnaryFunction(std::string name, std::function<Scalar(Scalar)> function)
+        : name(std::move(name))
+        , function(std::move(function))
+    {
+    }
+
+    std::string name; // NOLINT(misc-non-private-member-variables-in-classes)
+    std::function<Scalar(Scalar)>
+        function; // NOLINT(misc-non-private-member-variables-in-classes)
+};
 
 /**
  * @brief The FunctionDatabase class stores loaded functions for easy lookup by
@@ -22,26 +33,25 @@ public:
     static auto createWithDefaults() -> FunctionDatabase;
 
     /**
-     * @brief lookup - Look up unary function by its identitifer.
+     * @brief lookup - Potentially many-to-one lookup by a string.
      *
      * For example, the string "sin" will return the trigonometric sine
-     * function.
+     * function alongside its canonical name.
      *
-     * @param rawInput - Raw string input
-     * @return Returns the function that was found. Returns null if no such
-     *  function is loaded.
+     * @return Returns the function, or null if no function by that name exists.
      */
-    [[nodiscard]] auto lookup(std::string const& identifier) const
-        -> std::optional<UnaryFunction>;
+    [[nodiscard]] auto lookup(std::string const&) const
+        -> std::optional<std::shared_ptr<UnaryFunction const>>;
 
     [[nodiscard]] auto unaryNames() const
     {
-        return std::views::keys(m_unaryFunctions);
+        return std::views::values(m_unaryFunctions);
     }
 
 private:
     FunctionDatabase();
 
-    std::map<std::string, UnaryFunction> m_unaryFunctions;
+    std::map<std::string, std::shared_ptr<UnaryFunction const>>
+        m_unaryFunctions;
 };
 } // namespace calqmath
