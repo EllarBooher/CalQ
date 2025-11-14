@@ -17,16 +17,15 @@
 
 .EXAMPLE
     Building Release for all platforms in parallel by first mirroring the repo:
-        ./scripts/build_all.ps1
-            -OutDir ./build/build_all
-            -PathPrefix "C:\Qt\Tools\QtCreator\bin\clang\bin;C:\Qt\Tools\Ninja;C:\Qt\Tools\llvm-mingw1706_64\bin"
-            -QtDir C:\Qt\6.9.1
-            -CMake C:\Qt\Tools\CMake_64\bin\cmake.exe
-            -WSLQtDir ~//qt/6.9.1/gcc_64
-            -WSLCMake ~//qt/Tools/CMake/bin/cmake
-            -WSLVCPKGRoot /opt/vcpkg
-            -ForceClean
-            -BuildConfig Release
+        ./scripts/build_all.ps1 `
+            -OutDir ./build/build_all `
+            -PathPrefix "C:\Qt\Tools\QtCreator\bin\clang\bin;C:\Qt\Tools\Ninja;C:\Qt\Tools\llvm-mingw1706_64\bin" `
+            -QtDir C:\Qt\6.9.1 `
+            -CMake C:\Qt\Tools\CMake_64\bin\cmake.exe `
+            -WSLQtDir ~/qt/6.9.1/gcc_64 `
+            -WSLCMake ~/qt/Tools/CMake/bin/cmake `
+            -WSLVCPKGRoot /opt/vcpkg `
+            -BuildConfig Release `
             -Mirror
 #>
 
@@ -62,17 +61,14 @@ $WSLCMake,
 # VCPKG root on WSL installation.
 $WSLVCPKGRoot,
 [switch]
-# If set, for each target: if the build tree already exists, it will be wiped before building. Overrides -Clean.
+# If set, deletes entire OutDir before proceeding.
 $ForceClean,
-[switch]
-# If set, for each target: if the build tree already exists, runs CMake clean target.
-$Clean,
 [switch]
 # Suppress non-error subprocess writes to output.
 $Quiet,
 [switch]
 # OutDir becomes a copy of the source tree, and working directory becomes that folder, as if you ran the script on a clone of the repo.
-# Useful for a parallel CI build. Ignores hidden directories and build folder.
+# Useful for a parallel CI build. Ignores hidden directories and build folder. OutDir needs to be relative if this is used.
 $Mirror
 )
 
@@ -100,11 +96,13 @@ if($MirrorDir -ne "")
 {
     if($ForceClean)
     {
-        Remove-Item -Recurse './build/build_all'
+        Remove-Item -Recurse $OutDir
+    } else {
+        Remove-Item -Recurse $OutDir -Exclude "$OutDir/$OutDir"
     }
 
-    Get-ChildItem "." -Exclude 'build' -Attributes !Hidden | %{ Copy-Item $_ -Destination './build/build_all' -Recurse }
-    Set-Location './build/build_all'
+    Get-ChildItem "." -Exclude 'build' -Attributes !Hidden | %{ Copy-Item $_ -Destination $OutDir -Recurse }
+    Set-Location $OutDir
 }
 
 ""
@@ -123,8 +121,6 @@ $build_command = @"
     -BuildConfig '$BuildConfig'
     -CMakePreset x64-windows-msvc
     -PathPrefix '$PathPrefix'
-    -ForceClean:`$$ForceClean
-    -Clean:`$$Clean
 "@
 ">>> $build_command"
 Powershell -ExecutionPolicy Bypass -Command $build_command.replace("`n","").replace("`r","") `
@@ -151,8 +147,6 @@ $build_command = @"
     -BuildConfig '$BuildConfig'
     -CMakePreset x64-windows-mingw
     -PathPrefix '$PathPrefix'
-    -ForceClean:`$$ForceClean
-    -Clean:`$$Clean
 "@
 ">>> $build_command"
 Powershell -ExecutionPolicy Bypass -Command $build_command.replace("`n","").replace("`r","") `
@@ -166,6 +160,7 @@ if($?) {
     ""
     "Faild to build x64-windows-mingw."
 }
+
 ""
 
 # Clearing path speeds up compilation, and WSL installations should not depend on host-side system libraries.
@@ -177,8 +172,6 @@ try {
     ""
     $ScriptPathUnixed = "$PSScriptRoot\build.bash".Replace('\','\\')
     $WSLScriptPath = Invoke-Expression "& '$WSLBin' wslpath -a -u $ScriptPathUnixed"
-    $ForceCleanFlag = if($ForceClean) { "--force-clean" }
-    $CleanFlag = if($Clean) { "--clean" }
     $build_command = @"
 & '$WSLBin' $WSLScriptPath
     --out-dir '$OutDir/x64-linux'
@@ -186,8 +179,6 @@ try {
     --cmake '$WSLCMake'
     --vcpkg-root '$WSLVCPKGRoot'
     --build-config $BuildConfig
-    $ForceCleanFlag
-    $CleanFlag
 "@
     ">>> $build_command"
     Invoke-Expression $build_command.replace("`n","").replace("`r","") `

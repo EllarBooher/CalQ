@@ -1,0 +1,38 @@
+#!/bin/sh
+
+#
+# Test building all targets, only available from windows.
+#
+
+exec 1>&2
+
+echo "pre-push: Running build from $PWD"
+
+set -a
+source .githooks/.env
+set +a
+
+if ! command -v powershell >/dev/null 2>&1
+then
+  echo "pre-push: Powershell not found. Skipping build_all."
+  exit 0
+fi
+
+powershell -File ./scripts/build_all.ps1 \
+  -OutDir $OutDir \
+  -PathPrefix $PathPrefix \
+  -QtDir $QtDir \
+  -CMake $CMake \
+  -WSLQtDir $WSLQtDir \
+  -WSLCMake $WSLCMake \
+  -WSLVCPKGRoot $WSLVCPKGRoot \
+  -BuildConfig $BuildConfig \
+  -Mirror \
+  -Quiet
+if [ $? -ne 0 ]; then
+  echo "pre-push: Failed to build_all, terminating..."
+  exit 1
+fi
+
+echo "pre-push: build_all check succeeded."
+exit 0

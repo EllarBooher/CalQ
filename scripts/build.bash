@@ -17,8 +17,7 @@ options:
     --out-dir=<output directory>   The destination directory to save the build tree, passed to CMake. [ Default: './build/<build config>' ]
     --src-dir=<source directory>   The source directory, passed to CMake. [ Default: '.' ]
     --vcpkg-root                   Sets environment VCPKG_ROOT to the passed directory, as required by our CMake presets.
-    --force-clean                  If set and the build tree already exists, it will be wiped before building. Overrides --clean.
-    --clean                        If set and the build tree already exists, runs CMake clean target.
+    --force-clean                  If set and the build tree already exists, it will be wiped before building.
     --dry-run                      If set, all commands are logged instead of executing them.
 
 example:
@@ -42,7 +41,6 @@ QT_DIR=""
 CMAKE=""
 BUILD_CONFIG=""
 FORCE_CLEAN=false
-CLEAN=false
 DRY_RUN=false
 
 while true; do
@@ -83,11 +81,6 @@ while true; do
     ;;
     '--force-clean')
         FORCE_CLEAN=true
-        shift
-        continue
-    ;;
-    '--clean')
-        CLEAN=true
         shift
         continue
     ;;
@@ -196,7 +189,7 @@ if [ $FORCE_CLEAN = true ]; then
     else
         rm -rfI "$OUT_DIR"
     fi
-elif [ "$CLEAN" = true ] && [ -f "$OUT_DIR/CMakeCache.txt" ]; then
+elif [ -f "$OUT_DIR/CMakeCache.txt" ]; then
     echo ">>> $CMAKE \\
         --build $OUT_DIR \\
         --target clean"
@@ -206,11 +199,9 @@ elif [ "$CLEAN" = true ] && [ -f "$OUT_DIR/CMakeCache.txt" ]; then
         $CMAKE --build $OUT_DIR --target clean
         # swallow clean result since it shouldn't matter
     fi
-elif [ ! -f "$OUT_DIR/CMakeCache.txt" ]; then
-    >&2 echo "Output directory '$OUT_DIR' already exists and is nonempty, but no CMakeCache.txt exists, so it is unclear what to do. Pass -ForceClean or manually delete the folder and try again."
-    exit 1
 else
-    echo "Build tree exists, but -ForceClean and -Clean are not set so no cleaning to do."
+    echo "A build tree exists. However, --force-clean was not set and there is no CMakeCache.txt to run clean target for, indicating an unintended out directory was possibly passed. Terminating..."
+    exit 1
 fi
 else
     echo "Out directory is empty, no cleaning to do."
@@ -230,13 +221,7 @@ else
     $CMAKE -S $SRC_DIR -B $OUT_DIR --preset $PRESET
 fi
 if [ $? -ne 0 ]; then
-    echo "
-    Configuring failed, deleting \"$OUT_DIR\"."
-    if [ $DRY_RUN = true ]; then
-        echo "[-DryRun] rm -rfI \"$OUT_DIR\""
-    else
-        rm -rfI "$OUT_DIR"
-    fi
+    echo "Configuring failed, terminating..."
     exit 1
 fi
 
@@ -252,8 +237,7 @@ if [ $DRY_RUN = true ]; then
 else
     $CMAKE --build $OUT_DIR --config $BUILD_CONFIG
     if [ $? -ne 0 ]; then
-        echo "
-        Building failed, now exiting."
+        echo "Building failed, terminating..."
         exit 1
     fi
 fi

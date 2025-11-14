@@ -86,3 +86,6 @@ CMakeLists.txt.user*
 
 # Virtualenv python environment
 .venv
+
+# Githooks local environment
+.githooks/.env

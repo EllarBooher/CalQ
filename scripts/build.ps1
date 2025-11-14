@@ -30,11 +30,8 @@ param (
     # Which build config to use, e.g. Debug. Passed to CMake as --config $BuildConfig
     $BuildConfig,
     [switch]
-    # If set and the build tree already exists, it will be wiped before building. Overrides -Clean.
+    # Forcefully clear build tree if it exists.
     $ForceClean,
-    [switch]
-    # If set and the build tree already exists, CMake clean will be ran.
-    $Clean,
     [switch]
     # Log all commands instead of executing them.
     $DryRun,
@@ -120,10 +117,10 @@ if((Get-ChildItem $OutDir).Length -gt 0) {
             "[[[ -DryRun skipped ]]]"
         } else {
             # Split this into two commands, so the user gets just a single prompt for removing the existing directory
-            Remove-Item $OutDir -Recurse
+            Remove-Item $OutDir -Recurse -Confirm
             New-Item $OutDir -Type "Directory" | Out-Null
         }
-    } elseif ($Clean -and $(Test-Path "$OutDir/CMakeCache.txt")) {
+    } elseif (Test-Path "$OutDir/CMakeCache.txt") {
         ">>> & $CMake ``
             --build $OutDir ``
             --target clean"
@@ -133,11 +130,9 @@ if((Get-ChildItem $OutDir).Length -gt 0) {
         } else {
             & $CMake --build $OutDir --target clean | MyLog
         }
-    } elseif (-not $(Test-Path "$OutDir/CMakeCache.txt")) {
-        "Output directory '$OutDir' already exists and is nonempty, but no CMakeCache.txt exists, so it is unclear what to do. Pass -ForceClean or manually delete the folder and try again." | Write-Error
-        exit 1
     } else {
-        "Build tree exists, but -ForceClean and -Clean are not set so no cleaning to do."
+        "A build tree exists. However, -ForceClean was not set and there is no CMakeCache.txt to run clean target for, indicating an unintended out directory was possibly passed. Terminating..."
+        exit 1
     }
 } else {
     "Out directory is empty, no cleaning to do."

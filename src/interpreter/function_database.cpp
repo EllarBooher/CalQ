@@ -3,6 +3,7 @@
 #include "math/functions.h"
 #include <cassert>
 
+[[maybe_unused]]
 constexpr char const* RESERVED_FUNCTION_NAME = "x"; // Identifier for variable
 
 namespace calqmath
