@@ -1,36 +1,53 @@
-#!/bin/sh
+#!/bin/bash
 
 #
-# Test building all targets, only available from windows.
+# Test building all targets. This script assumes it is ran on Windows, with access to WSL.
 #
 
 exec 1>&2
-
-echo "pre-push: Running build from $PWD"
 
 set -a
 source .githooks/.env
 set +a
 
-if ! command -v powershell >/dev/null 2>&1
-then
-  echo "pre-push: Powershell not found. Skipping build_all."
-  exit 0
+rm -rf ./build/build_all
+
+# Use this instead of wsl --exec, since no matter what wsl wants to prepend absolute Linux paths with working directory.
+# Which in this case is probably C:/Program Files/git, resulting in a garbage path.
+wsl bash -c "./scripts/build.bash --out-dir ./build/build_all/linux --qt-dir $LinuxQtDir --cmake $LinuxCMake --cmake-preset x64-linux --vcpkg-root $LinuxVCPKGRoot --parallel"
+
+if [ $? -ne 0 ]; then
+  echo "pre-push: Failed Linux..."
+  exit 1
 fi
 
-powershell -File ./scripts/build_all.ps1 \
-  -OutDir $OutDir \
-  -PathPrefix $PathPrefix \
-  -QtDir $QtDir \
-  -CMake $CMake \
-  -WSLQtDir $WSLQtDir \
-  -WSLCMake $WSLCMake \
-  -WSLVCPKGRoot $WSLVCPKGRoot \
-  -BuildConfig $BuildConfig \
-  -Mirror \
-  -Quiet
+./scripts/build.bash \
+  --out-dir "$OutDir\msvc" \
+  --qt-dir "$MSVCQtDir" \
+  --cmake "$WinCMake" \
+  --cmake-preset x64-windows-msvc \
+  --vcpkg-root "$WinVCPKGRoot" \
+  --cmake-prefix "$MSVCCMakePrefix" \
+  --wsl-interop \
+  --parallel
+
 if [ $? -ne 0 ]; then
-  echo "pre-push: Failed to build_all, terminating..."
+  echo "pre-push: Failed MSVC..."
+  exit 1
+fi
+
+./scripts/build.bash \
+  --out-dir "$OutDir\mingw" \
+  --qt-dir "$MinGWQtDir" \
+  --cmake "$WinCMake" \
+  --cmake-preset x64-windows-mingw \
+  --vcpkg-root "$WinVCPKGRoot" \
+  --cmake-prefix "$MinGWCMakePrefix" \
+  --wsl-interop \
+  --parallel
+
+if [ $? -ne 0 ]; then
+  echo "pre-push: Failed MinGW..."
   exit 1
 fi
 
