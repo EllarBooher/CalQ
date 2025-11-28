@@ -90,7 +90,8 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
                 xViewport, yViewportStart, xViewport, yViewportEnd
             );
 
-            auto const label = QString{"%1"}.arg(xIdx / MINOR_PER_MAJOR);
+            auto const xMath = xGraph * MATH_UNITS_PER_GRAPH_UNITS;
+            auto const label = QString{"%1"}.arg(xMath);
             QRectF const boundsViewport{
                 xViewport - 7.5,
                 (0.0 - rectGraph.center().y()) / m_graphScale
@@ -141,7 +142,8 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
                 xViewportStart, yViewport, xViewportEnd, yViewport
             );
 
-            auto const label = QString{"%1"}.arg(yIdx / MINOR_PER_MAJOR);
+            auto const yMath = -yGraph * MATH_UNITS_PER_GRAPH_UNITS;
+            auto const label = QString{"%1"}.arg(yMath);
             auto const boundsViewport = QRectF{
                 (0.0 - rectGraph.center().x() / m_graphScale)
                     + rectViewport.center().x() - 12.0,
@@ -221,12 +223,16 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
             };
 
             QPointF const viewportStart{
-                ((mathStart / MATH_UNITS_PER_GRAPH_UNITS) - rectGraph.center())
+                ((QPointF{mathStart.x(), -mathStart.y()}
+                  / MATH_UNITS_PER_GRAPH_UNITS)
+                 - rectGraph.center())
                     / m_graphScale
                 + rectViewport.center()
             };
             QPointF const viewportEnd{
-                ((mathEnd / MATH_UNITS_PER_GRAPH_UNITS) - rectGraph.center())
+                ((QPointF{mathEnd.x(), -mathEnd.y()}
+                  / MATH_UNITS_PER_GRAPH_UNITS)
+                 - rectGraph.center())
                     / m_graphScale
                 + rectViewport.center()
             };
