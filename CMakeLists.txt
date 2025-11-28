@@ -13,7 +13,11 @@ project(CalQ LANGUAGES CXX)
 # Load our FindGMP script for find_package
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-find_package(Qt6 6.9 REQUIRED COMPONENTS Core Widgets Quick Test Graphs QuickWidgets)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+
+find_package(Qt6 6.10 REQUIRED COMPONENTS Core Widgets Quick Test Graphs QuickWidgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
 qt_policy(SET QTP0001 NEW)
 qt_policy(SET QTP0004 NEW)
@@ -68,14 +72,14 @@ target_link_libraries(CalQInterpreter PRIVATE CalQMath)
 
 qt_add_executable(CalQApp
   WIN32 MACOSX_BUNDLE
-  ${RCC_SOURCES}
   src/app/main.cpp
   src/app/mainwindow.cpp src/app/mainwindow.h src/app/mainwindow.ui
-  src/app/graph.qml
+  src/app/calqgraph.h src/app/calqgraph.cpp
 )
 set_target_properties(CalQApp PROPERTIES CXX_STANDARD 23 OUTPUT_NAME CalQ)
 target_include_directories(CalQApp PRIVATE src/)
 target_link_libraries(CalQApp PRIVATE Qt::Core Qt::Widgets Qt::QuickWidgets Qt::Graphs CalQInterpreter)
+target_link_libraries(CalQApp PRIVATE Qt6::Widgets)
 
 ################################################################################
 # CalQTest
@@ -94,10 +98,12 @@ target_include_directories(CalQTest PRIVATE src/)
 option(CLANG_TIDY_ENABLE "Enable clang-tidy - this impacts compilation time." OFF)
 include(clang-tidy)
 if(CLANG_TIDY AND CLANG_TIDY_ENABLE)
+  cmake_path(APPEND clang_tidy_config_path "${CMAKE_SOURCE_DIR}" ".clang-tidy")
+  message(STATUS "Enabling clang-tidy. Using: ${CLANG_TIDY}. Config at: ${clang_tidy_config_path}")
   set_target_properties(
     CalQMath CalQInterpreter CalQApp # CalQTest
     PROPERTIES
-    CXX_CLANG_TIDY "${CLANG_TIDY}"
+    CXX_CLANG_TIDY "${CLANG_TIDY};--config-file=${clang_tidy_config_path};--header-filter=^.*\/src\/.*$"
   )
 endif()
 

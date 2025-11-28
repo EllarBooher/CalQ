@@ -14,18 +14,21 @@ namespace calqmath
 class Interpreter;
 } // namespace calqmath
 
-QT_BEGIN_NAMESPACE
-namespace Ui {
+namespace calqapp
+{
+class CalQGraph;
+
+namespace Ui
+{
 class MainWindow;
-}
-QT_END_NAMESPACE
+} // namespace Ui
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow() override;
 
 private slots:
@@ -39,12 +42,10 @@ private:
     void setGraphedExpression(calqmath::Expression const& expression);
 
     std::unique_ptr<Ui::MainWindow> m_ui;
+    std::unique_ptr<CalQGraph> m_graph;
 
     std::unique_ptr<QStringList> m_messages;
     std::unique_ptr<QStringListModel> m_messagesModel;
     std::unique_ptr<calqmath::Interpreter> m_interpreter;
-    std::unique_ptr<QScatterSeries> m_series;
-    std::unique_ptr<QValueAxis> m_xAxis;
-    std::unique_ptr<QValueAxis> m_yAxis;
-    std::unique_ptr<QQuickWidget> m_graph;
 };
+} // namespace calqapp

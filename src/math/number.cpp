@@ -124,7 +124,7 @@ auto Scalar::toMantissaExponent() const -> std::tuple<std::string, ptrdiff_t>
     return result;
 }
 
-Scalar Scalar::zero()
+auto Scalar::zero() -> Scalar
 {
     Scalar result{};
     // +1 indicates positive zero

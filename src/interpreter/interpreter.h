@@ -68,10 +68,6 @@ public:
 
     [[nodiscard]] auto expression(std::string const& rawInput) const
         -> std::expected<Expression, InterpretError>;
-
-    [[nodiscard]] auto evaluate(Expression const&, Scalar const&) const
-        -> std::optional<Scalar>;
-
 private:
     FunctionDatabase m_functions;
 };

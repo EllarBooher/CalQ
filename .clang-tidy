@@ -6,13 +6,21 @@
 # misc-no-recursion
 #  Hard to work around with the Math interpretation tree, just takes some work to build it without recursion.
 #
+# portability-avoid-pragma-once
+#  Not really useful, our supported compilers support #pragma once
+#
+# readability-convert-member-functions-to-static
+#  Was throwing false positives
+#
+# readability-named-parameter
+#  Gets in the way of eliding parameter names that are obvious from context, and in my opinion reduces readability in that case.
+#
 
 HeaderFileExtensions: ['', 'h','hh','hpp','hxx']
 ImplementationFileExtensions: ['c','cc','cpp','cxx']
 # HeaderFilterRegex is broken in some versions, see https://github.com/llvm/llvm-project/pull/133582.
-# At least 20.1.2 fixes this.
-HeaderFilterRegex: '.*'
-ExcludeHeaderFilterRegex: '^.*\/build\/.*$'
+# At least 20.1.2 fixes this. For now, we specify on the commandline just to ensure this option gets set.
+HeaderFilterRegex: '^.*\/src\/.*$'
 Checks: >
   -*,
   clang-*,
@@ -22,7 +30,9 @@ Checks: >
   modernize-*,
   performance-*,
   portability-*,
-  readability-*
+  -portability-avoid-pragma-once,
+  readability-*,
+  -readability-named-parameter,
 
 WarningsAsErrors: '*'
 CheckOptions:

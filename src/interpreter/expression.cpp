@@ -78,12 +78,7 @@ auto Expression::operator==(Expression const& rhs) const -> bool
         }
     }
 
-    if (m_function != rhs.m_function)
-    {
-        return false;
-    }
-
-    return true;
+    return m_function == rhs.m_function;
 }
 
 namespace

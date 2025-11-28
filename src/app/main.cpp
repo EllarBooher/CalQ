@@ -6,7 +6,7 @@
 int main(int argc, char *argv[])
 {
     QApplication const app(argc, argv);
-    MainWindow window;
+    calqapp::MainWindow window;
     window.show();
     return QApplication::exec();
 }

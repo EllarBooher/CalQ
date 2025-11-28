@@ -79,17 +79,4 @@ auto Interpreter::expression(std::string const& rawInput) const
 
     return expression.value();
 }
-
-std::optional<Scalar> Interpreter::evaluate(
-    Expression const& expression, Scalar const& variable
-) const
-{
-    auto const evaluated = expression.evaluate(variable);
-    if (!evaluated.has_value())
-    {
-        return std::nullopt;
-    }
-
-    return evaluated.value();
-}
 } // namespace calqmath
