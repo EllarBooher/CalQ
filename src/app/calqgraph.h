@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QWidget>
-#include <qquickwidget.h>
 
 #include "interpreter/expression.h"
 
@@ -17,8 +16,13 @@ public:
 
 protected:
     void paintEvent(QPaintEvent*) override;
+    void mouseReleaseEvent(QMouseEvent*) override;
+    void mouseMoveEvent(QMouseEvent*) override;
 
 private:
     std::optional<calqmath::Expression> m_expression;
+    // The origin of the graph, in pixels.
+    QPointF m_pixelOrigin;
+    std::optional<QPointF> m_mousePreviousPosition;
 };
 } // namespace calqapp

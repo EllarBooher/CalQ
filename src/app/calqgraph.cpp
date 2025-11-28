@@ -1,5 +1,7 @@
 #include "calqgraph.h"
 
+#include <QMouseEvent>
+#include <QPaintEvent>
 #include <QPainter>
 #include <QtLogging>
 
@@ -28,9 +30,16 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
 
     painter.setRenderHint(QPainter::Antialiasing, true);
 
-    auto const rect = event->rect();
-    auto const minorXTickCount = rect.width() / DISTANCE_MINOR;
-    auto const minorYTickCount = rect.height() / DISTANCE_MINOR;
+    auto const rect = event->rect().toRectF();
+    auto const minorXMin =
+        std::floor((-0.5 * rect.width() + m_pixelOrigin.x()) / DISTANCE_MINOR);
+    auto const minorXMax =
+        std::ceil((0.5 * rect.width() + m_pixelOrigin.x()) / DISTANCE_MINOR);
+
+    auto const minorYMin =
+        std::floor((-0.5 * rect.height() + m_pixelOrigin.y()) / DISTANCE_MINOR);
+    auto const minorYMax =
+        std::ceil((0.5 * rect.height() + m_pixelOrigin.y()) / DISTANCE_MINOR);
 
     QPen const axisPen{QColor{25, 25, 25}, 2, Qt::SolidLine};
     QPen const majorPen{QColor{70, 70, 70}, 1, Qt::SolidLine};
@@ -41,7 +50,10 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
     {
         QString const label{"0"};
         QRectF const bounds{
-            rect.center().x() - 12.0, qreal(rect.center().y()), 10, 20
+            rect.center().x() - 12.0 - m_pixelOrigin.x(),
+            rect.center().y() + 0.0 - m_pixelOrigin.y(),
+            10,
+            20
         };
         QMarginsF const clearMargins{3.0, 3.0, 3.0, 4.0};
 
@@ -55,16 +67,15 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
         );
     }
 
-    for (int32_t xIdx = -((minorXTickCount + 1) / 2);
-         xIdx <= ((minorXTickCount + 1) / 2);
-         xIdx += 1)
+    for (int32_t xIdx = minorXMin; xIdx <= minorXMax; xIdx += 1)
     {
         bool const isMajor = (xIdx % MINOR_PER_MAJOR) == 0;
         auto const isAxis{xIdx == 0};
 
         auto const yStart = rect.top();
         auto const yEnd = rect.bottom();
-        auto const xCoord = rect.center().x() + (xIdx * DISTANCE_MINOR);
+        auto const xCoord =
+            rect.center().x() - m_pixelOrigin.x() + (xIdx * DISTANCE_MINOR);
 
         if (isMajor && !isAxis)
         {
@@ -72,7 +83,9 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
             painter.drawLine(xCoord, yStart, xCoord, yEnd);
 
             auto const label = QString{"%1"}.arg(xIdx / MINOR_PER_MAJOR);
-            QRectF const bounds{xCoord - 7.5, qreal(rect.center().y()), 15, 20};
+            QRectF const bounds{
+                xCoord - 7.5, rect.center().y() - m_pixelOrigin.y(), 15, 20
+            };
             QMarginsF const clearMargins{0.0, 3.0, 3.0, 4.0};
 
             painter.setPen(QPen{Qt::white});
@@ -89,28 +102,33 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
         }
     }
 
-    for (int32_t yIdx = -((minorYTickCount + 1) / 2);
-         yIdx <= ((minorYTickCount + 1) / 2);
-         yIdx += 1)
+    for (int32_t yIdx = minorYMin; yIdx <= minorYMax; yIdx += 1)
     {
         bool const isMajor = (yIdx % MINOR_PER_MAJOR) == 0;
         bool const isAxis = yIdx == 0;
 
         auto const xStart = rect.left();
         auto const xEnd = rect.right();
-        auto const yCoord = rect.center().y() + (yIdx * DISTANCE_MINOR);
+        auto const yCoord =
+            rect.center().y() - m_pixelOrigin.y() + (yIdx * DISTANCE_MINOR);
 
         if (isMajor && !isAxis)
         {
             painter.setPen(majorPen);
             painter.drawLine(xStart, yCoord, xEnd, yCoord);
+
             auto const label = QString{"%1"}.arg(yIdx / MINOR_PER_MAJOR);
-            auto const bounds =
-                QRectF{rect.center().x() - 12.0, yCoord - 10.0, 10, 20};
+            auto const bounds = QRectF{
+                rect.center().x() - 12.0 - m_pixelOrigin.x(),
+                yCoord - 10.0,
+                10,
+                20
+            };
+            QMarginsF const clearMargins{0.0, 3.0, 1.0, 4.0};
 
             painter.setPen(QPen{Qt::white});
             painter.setBrush(QBrush{Qt::white});
-            painter.drawRect(bounds - QMarginsF{0.0, 0.0, 0.0, 0.0});
+            painter.drawRect(bounds - clearMargins);
 
             painter.setPen(QPen{Qt::black});
             painter.drawText(
@@ -126,10 +144,16 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
 
     painter.setPen(axisPen);
     painter.drawLine(
-        rect.center().x(), rect.top(), rect.center().x(), rect.bottom()
+        rect.center().x() - m_pixelOrigin.x(),
+        rect.top(),
+        rect.center().x() - m_pixelOrigin.x(),
+        rect.bottom()
     );
     painter.drawLine(
-        rect.left(), rect.center().y(), rect.right(), rect.center().y()
+        rect.left(),
+        rect.center().y() - m_pixelOrigin.y(),
+        rect.right(),
+        rect.center().y() - m_pixelOrigin.y()
     );
 
     if (m_expression.has_value())
@@ -138,8 +162,12 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
 
         painter.setPen(QPen{Qt::red});
         auto const xPadding = 0.1;
-        auto const xMin = -rect.width() * 0.5 / PIXEL_PER_MATH - xPadding;
-        auto const xMax = +rect.width() * 0.5 / PIXEL_PER_MATH + xPadding;
+        auto const xMin = (rect.left() - rect.center().x() + m_pixelOrigin.x())
+                            / PIXEL_PER_MATH
+                        - xPadding;
+        auto const xMax = (rect.right() - rect.center().x() + m_pixelOrigin.x())
+                            / PIXEL_PER_MATH
+                        + xPadding;
 
         QPointF mathStart{
             qreal(xMin),
@@ -161,12 +189,16 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
             };
 
             QPointF const pixelStart{
-                (DISTANCE_MAJOR * mathStart.x()) + rect.center().x(),
-                (-DISTANCE_MAJOR * mathStart.y()) + rect.center().y(),
+                (DISTANCE_MAJOR * mathStart.x()) + rect.center().x()
+                    - m_pixelOrigin.x(),
+                (-DISTANCE_MAJOR * mathStart.y()) + rect.center().y()
+                    - m_pixelOrigin.y(),
             };
             QPointF const pixelEnd{
-                (DISTANCE_MAJOR * mathEnd.x()) + rect.center().x(),
-                (-DISTANCE_MAJOR * mathEnd.y()) + rect.center().y(),
+                (DISTANCE_MAJOR * mathEnd.x()) + rect.center().x()
+                    - m_pixelOrigin.x(),
+                (-DISTANCE_MAJOR * mathEnd.y()) + rect.center().y()
+                    - m_pixelOrigin.y(),
             };
 
             painter.drawLine(pixelStart, pixelEnd);
@@ -174,4 +206,22 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
             mathStart = mathEnd;
         }
     }
+}
+
+void calqapp::CalQGraph::mouseReleaseEvent(QMouseEvent*)
+{
+    m_mousePreviousPosition = std::nullopt;
+}
+
+void calqapp::CalQGraph::mouseMoveEvent(QMouseEvent* event)
+{
+    if (m_mousePreviousPosition.has_value())
+    {
+        auto const mouseDelta = event->pos() - m_mousePreviousPosition.value();
+
+        m_pixelOrigin -= mouseDelta;
+        update();
+    }
+
+    m_mousePreviousPosition = event->pos();
 }

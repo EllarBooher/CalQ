@@ -4,9 +4,6 @@
 
 #include <QLineEdit>
 #include <QMainWindow>
-#include <QQmlContext>
-#include <QQmlProperty>
-#include <QQuickItem>
 #include <QString>
 #include <QStringList>
 #include <QStringListModel>
@@ -58,6 +55,7 @@ calqapp::MainWindow::MainWindow(QWidget* parent)
 
     m_graph->setPalette(pal);
     m_graph->updateGeometry();
+    m_graph->setExpression(m_interpreter->expression("sin(x)").value());
 
     m_ui->history->setModel(m_messagesModel.get());
 

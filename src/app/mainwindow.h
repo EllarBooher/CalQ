@@ -2,12 +2,8 @@
 
 #include "interpreter/interpreter.h"
 #include <QMainWindow>
-#include <QQuickWidget>
-#include <QScatterSeries>
 #include <QStringList>
 #include <QStringListModel>
-#include <QValueAxis>
-// #include <QWidget>
 
 namespace calqmath
 {
