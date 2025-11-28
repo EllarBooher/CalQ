@@ -28,10 +28,10 @@ private:
      * lines may be 10 pixels apart at 1.0, but at 2.0 they would be 20 pixels
      * apart.
      */
-    qreal m_pixelScale{1.0};
+    qreal m_graphScale{1.0};
 
     // The origin of the graph, in pixels.
-    QPointF m_pixelOrigin;
+    QPointF m_graphTranslation;
 
     std::optional<QPointF> m_mousePreviousPosition;
 };
