@@ -16,13 +16,11 @@ void calqapp::CalQGraph::setExpression(calqmath::Expression const& expression)
 }
 
 constexpr int32_t MINOR_PER_MAJOR = 5;
-constexpr int32_t DISTANCE_MINOR = 20;
-constexpr int32_t DISTANCE_MAJOR = MINOR_PER_MAJOR * DISTANCE_MINOR;
+constexpr int32_t DISTANCE_MINOR_AT_ONE_ZOOM = 20;
+constexpr int32_t DISTANCE_MAJOR_AT_ONE_ZOOM =
+    MINOR_PER_MAJOR * DISTANCE_MINOR_AT_ONE_ZOOM;
 
-// Multiplicative conversion factor between
-// - pixels ( as input to QPainter calls )
-// - math coordinates ( as in input to calqmath::Expression )
-constexpr double PIXEL_PER_MATH = DISTANCE_MAJOR;
+constexpr double PIXEL_PER_MATH_AT_ONE_ZOOM = DISTANCE_MAJOR_AT_ONE_ZOOM;
 
 void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
 {
@@ -31,15 +29,23 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
     painter.setRenderHint(QPainter::Antialiasing, true);
 
     auto const rect = event->rect().toRectF();
-    auto const minorXMin =
-        std::floor((-0.5 * rect.width() + m_pixelOrigin.x()) / DISTANCE_MINOR);
-    auto const minorXMax =
-        std::ceil((0.5 * rect.width() + m_pixelOrigin.x()) / DISTANCE_MINOR);
+    auto const minorXMin = std::floor(
+        ((rect.left() - rect.center().x()) + m_pixelOrigin.x())
+        / (DISTANCE_MINOR_AT_ONE_ZOOM * m_pixelScale)
+    );
+    auto const minorXMax = std::ceil(
+        ((rect.right() - rect.center().x()) + m_pixelOrigin.x())
+        / (DISTANCE_MINOR_AT_ONE_ZOOM * m_pixelScale)
+    );
 
-    auto const minorYMin =
-        std::floor((-0.5 * rect.height() + m_pixelOrigin.y()) / DISTANCE_MINOR);
-    auto const minorYMax =
-        std::ceil((0.5 * rect.height() + m_pixelOrigin.y()) / DISTANCE_MINOR);
+    auto const minorYMin = std::floor(
+        ((rect.top() - rect.center().y()) + m_pixelOrigin.y())
+        / (DISTANCE_MINOR_AT_ONE_ZOOM * m_pixelScale)
+    );
+    auto const minorYMax = std::ceil(
+        ((rect.bottom() - rect.center().y()) + m_pixelOrigin.y())
+        / (DISTANCE_MINOR_AT_ONE_ZOOM * m_pixelScale)
+    );
 
     QPen const axisPen{QColor{25, 25, 25}, 2, Qt::SolidLine};
     QPen const majorPen{QColor{70, 70, 70}, 1, Qt::SolidLine};
@@ -74,8 +80,8 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
 
         auto const yStart = rect.top();
         auto const yEnd = rect.bottom();
-        auto const xCoord =
-            rect.center().x() - m_pixelOrigin.x() + (xIdx * DISTANCE_MINOR);
+        auto const xCoord = rect.center().x() - m_pixelOrigin.x()
+                          + xIdx * DISTANCE_MINOR_AT_ONE_ZOOM * m_pixelScale;
 
         if (isMajor && !isAxis)
         {
@@ -109,8 +115,8 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
 
         auto const xStart = rect.left();
         auto const xEnd = rect.right();
-        auto const yCoord =
-            rect.center().y() - m_pixelOrigin.y() + (yIdx * DISTANCE_MINOR);
+        auto const yCoord = rect.center().y() - m_pixelOrigin.y()
+                          + (yIdx * DISTANCE_MINOR_AT_ONE_ZOOM * m_pixelScale);
 
         if (isMajor && !isAxis)
         {
@@ -163,10 +169,10 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
         painter.setPen(QPen{Qt::red});
         auto const xPadding = 0.1;
         auto const xMin = (rect.left() - rect.center().x() + m_pixelOrigin.x())
-                            / PIXEL_PER_MATH
+                            / (PIXEL_PER_MATH_AT_ONE_ZOOM * m_pixelScale)
                         - xPadding;
         auto const xMax = (rect.right() - rect.center().x() + m_pixelOrigin.x())
-                            / PIXEL_PER_MATH
+                            / (PIXEL_PER_MATH_AT_ONE_ZOOM * m_pixelScale)
                         + xPadding;
 
         QPointF mathStart{
@@ -189,20 +195,19 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
             };
 
             QPointF const pixelStart{
-                (DISTANCE_MAJOR * mathStart.x()) + rect.center().x()
-                    - m_pixelOrigin.x(),
-                (-DISTANCE_MAJOR * mathStart.y()) + rect.center().y()
-                    - m_pixelOrigin.y(),
+                (DISTANCE_MAJOR_AT_ONE_ZOOM * m_pixelScale * mathStart.x())
+                    + rect.center().x() - m_pixelOrigin.x(),
+                (-DISTANCE_MAJOR_AT_ONE_ZOOM * m_pixelScale * mathStart.y())
+                    + rect.center().y() - m_pixelOrigin.y(),
             };
             QPointF const pixelEnd{
-                (DISTANCE_MAJOR * mathEnd.x()) + rect.center().x()
-                    - m_pixelOrigin.x(),
-                (-DISTANCE_MAJOR * mathEnd.y()) + rect.center().y()
-                    - m_pixelOrigin.y(),
+                (DISTANCE_MAJOR_AT_ONE_ZOOM * m_pixelScale * mathEnd.x())
+                    + rect.center().x() - m_pixelOrigin.x(),
+                (-DISTANCE_MAJOR_AT_ONE_ZOOM * m_pixelScale * mathEnd.y())
+                    + rect.center().y() - m_pixelOrigin.y(),
             };
 
             painter.drawLine(pixelStart, pixelEnd);
-
             mathStart = mathEnd;
         }
     }
@@ -224,4 +229,16 @@ void calqapp::CalQGraph::mouseMoveEvent(QMouseEvent* event)
     }
 
     m_mousePreviousPosition = event->pos();
+}
+
+void calqapp::CalQGraph::wheelEvent(QWheelEvent* event)
+{
+    auto const newZoom{
+        std::clamp(m_pixelScale + 0.001 * event->angleDelta().y(), 0.1, 10.0)
+    };
+    if (newZoom != m_pixelScale)
+    {
+        m_pixelScale = newZoom;
+        update();
+    }
 }

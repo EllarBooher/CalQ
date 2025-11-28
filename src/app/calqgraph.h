@@ -18,11 +18,21 @@ protected:
     void paintEvent(QPaintEvent*) override;
     void mouseReleaseEvent(QMouseEvent*) override;
     void mouseMoveEvent(QMouseEvent*) override;
+    void wheelEvent(QWheelEvent*) override;
 
 private:
     std::optional<calqmath::Expression> m_expression;
+
+    /*
+     * Factor to multiply pixel-size of features by. For example, minor tick
+     * lines may be 10 pixels apart at 1.0, but at 2.0 they would be 20 pixels
+     * apart.
+     */
+    qreal m_pixelScale{1.0};
+
     // The origin of the graph, in pixels.
     QPointF m_pixelOrigin;
+
     std::optional<QPointF> m_mousePreviousPosition;
 };
 } // namespace calqapp
