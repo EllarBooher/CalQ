@@ -1,18 +1,33 @@
 #include "calqgraph.h"
 
 #include <QMouseEvent>
+#include <QOpenGLFunctions>
 #include <QPaintEvent>
 #include <QPainter>
 #include <QtLogging>
 
 calqapp::CalQGraph::CalQGraph(QWidget* parent)
-    : QWidget{parent}
+    : QOpenGLWidget{parent}
 {
+    QSurfaceFormat fmt;
+
+    auto constexpr GRAPH_MULTISAMPLE_COUNT{8};
+    fmt.setSamples(GRAPH_MULTISAMPLE_COUNT);
+    setFormat(fmt);
 }
 
 void calqapp::CalQGraph::setExpression(calqmath::Expression const& expression)
 {
     m_expression = expression;
+}
+
+void calqapp::CalQGraph::resizeGL(int const width, int const height)
+{
+    QOpenGLFunctions* glFunc = QOpenGLContext::currentContext()->functions();
+    glFunc->glViewport(0, 0, width, height);
+
+    m_width = width;
+    m_height = height;
 }
 
 constexpr int32_t MINOR_PER_MAJOR = 5;
@@ -24,13 +39,21 @@ constexpr double MAJOR_DISTANCE_MATH_UNITS = 1.0;
 constexpr double MATH_UNITS_PER_GRAPH_UNITS =
     MAJOR_DISTANCE_MATH_UNITS / MAJOR_DISTANCE_GRAPH_UNITS;
 
-void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
+void calqapp::CalQGraph::paintGL()
 {
+    QOpenGLFunctions* glFunc = QOpenGLContext::currentContext()->functions();
+    glFunc->glClearColor(1.0, 1.0, 1.0, 1.0);
+    glFunc->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glFunc->glEnable(GL_MULTISAMPLE);
+    glFunc->glEnable(GL_LINE_SMOOTH);
+
     QPainter painter{this};
 
-    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setRenderHint(QPainter::Antialiasing);
 
-    auto const rectViewport = event->rect().toRectF();
+    auto const rectViewport = QRectF{
+        0.0, 0.0, static_cast<qreal>(m_width), static_cast<qreal>(m_height)
+    };
     auto const rectGraph = QRectF{
         (rectViewport.topLeft() - rectViewport.center()) * m_graphScale
             + m_graphTranslation,

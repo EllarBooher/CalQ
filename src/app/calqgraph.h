@@ -1,12 +1,12 @@
 #pragma once
 
-#include <QWidget>
+#include <QtOpenGLWidgets/QOpenGLWidget>
 
 #include "interpreter/expression.h"
 
 namespace calqapp
 {
-class CalQGraph : public QWidget
+class CalQGraph : public QOpenGLWidget
 {
     Q_OBJECT
 public:
@@ -15,7 +15,11 @@ public:
     void setExpression(calqmath::Expression const&);
 
 protected:
-    void paintEvent(QPaintEvent*) override;
+    // void paintEvent(QPaintEvent*) override;
+
+    void resizeGL(int width, int height) override;
+    void paintGL() override;
+
     void mouseReleaseEvent(QMouseEvent*) override;
     void mouseMoveEvent(QMouseEvent*) override;
     void wheelEvent(QWheelEvent*) override;
@@ -34,5 +38,8 @@ private:
     QPointF m_graphTranslation;
 
     std::optional<QPointF> m_mousePreviousPosition;
+
+    int m_width;
+    int m_height;
 };
 } // namespace calqapp

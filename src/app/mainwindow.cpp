@@ -48,7 +48,6 @@ calqapp::MainWindow::MainWindow(QWidget* parent)
     );
     QSize constexpr GRAPH_MINIMUM_SIZE{500, 500};
     m_graph->setMinimumSize(GRAPH_MINIMUM_SIZE);
-    m_graph->setAutoFillBackground(true);
 
     QPalette pal{};
     pal.setColor(QPalette::Window, Qt::white);

@@ -16,7 +16,7 @@ list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 6.10 REQUIRED COMPONENTS Core Widgets Quick Test)
+find_package(Qt6 6.10 REQUIRED COMPONENTS Core Widgets Quick Test OpenGLWidgets)
 
 qt_policy(SET QTP0001 NEW)
 qt_policy(SET QTP0004 NEW)
@@ -77,8 +77,7 @@ qt_add_executable(CalQApp
 )
 set_target_properties(CalQApp PROPERTIES CXX_STANDARD 23 OUTPUT_NAME CalQ)
 target_include_directories(CalQApp PRIVATE src/)
-target_link_libraries(CalQApp PRIVATE Qt::Core Qt::Widgets CalQInterpreter)
-target_link_libraries(CalQApp PRIVATE Qt6::Widgets)
+target_link_libraries(CalQApp PRIVATE Qt::Core Qt::Widgets Qt::OpenGLWidgets CalQInterpreter )
 
 ################################################################################
 # CalQTest / CalQBenchmark
