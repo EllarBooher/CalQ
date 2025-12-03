@@ -257,6 +257,7 @@ void calqapp::CalQGraph::paintGL()
         {
             fractionX += deltaFractionX;
 
+            auto const oldSlope = (next.y() - prev.y()) / (next.x() - prev.x());
             prev = next;
 
             auto const xNext{(fractionX * (xMax - xMin)) + xMin};
@@ -280,7 +281,17 @@ void calqapp::CalQGraph::paintGL()
                 + rectViewport.center()
             };
 
-            painter.drawLine(viewportStart, viewportEnd);
+            auto const newSlope = (next.y() - prev.y()) / (next.x() - prev.x());
+
+            /*
+             * Detect discontinuities. Not 100% foolproof, but good enough for
+             * now.
+             */
+            double constexpr SLOPE_ABSOLUTE_DELTA_MAX{0.1};
+            if (std::abs(newSlope - oldSlope) < SLOPE_ABSOLUTE_DELTA_MAX)
+            {
+                painter.drawLine(viewportStart, viewportEnd);
+            }
         }
     }
 }
@@ -307,7 +318,9 @@ void calqapp::CalQGraph::mouseMoveEvent(QMouseEvent* event)
 void calqapp::CalQGraph::wheelEvent(QWheelEvent* event)
 {
     auto const newZoom{std::clamp(
-        m_graphScale - m_graphScale * 0.001 * event->angleDelta().y(), 0.1, 10.0
+        m_graphScale - m_graphScale * 0.001 * event->angleDelta().y(),
+        0.01,
+        10.0
     )};
     if (newZoom != m_graphScale)
     {
