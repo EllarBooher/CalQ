@@ -46,9 +46,9 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
     {
         QString const label{"0"};
         QRectF const boundsViewport{
-            (0.0 - rectGraph.center().x()) / m_graphScale
+            ((0.0 - rectGraph.center().x()) / m_graphScale)
                 + rectViewport.center().x() - 12.0,
-            (0.0 - rectGraph.center().y()) / m_graphScale
+            ((0.0 - rectGraph.center().y()) / m_graphScale)
                 + rectViewport.center().y(),
             10,
             20
@@ -94,7 +94,7 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
             auto const label = QString{"%1"}.arg(xMath);
             QRectF const boundsViewport{
                 xViewport - 7.5,
-                (0.0 - rectGraph.center().y()) / m_graphScale
+                ((0.0 - rectGraph.center().y()) / m_graphScale)
                     + rectViewport.center().y(),
                 15,
                 20
@@ -175,19 +175,19 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
 
     painter.setPen(axisPen);
     painter.drawLine(
-        (0.0 - rectGraph.center().x()) / m_graphScale
+        ((0.0 - rectGraph.center().x()) / m_graphScale)
             + rectViewport.center().x(),
         rectViewport.top(),
-        (0.0 - rectGraph.center().x()) / m_graphScale
+        ((0.0 - rectGraph.center().x()) / m_graphScale)
             + rectViewport.center().x(),
         rectViewport.bottom()
     );
     painter.drawLine(
         rectViewport.left(),
-        (0.0 - rectGraph.center().y()) / m_graphScale
+        ((0.0 - rectGraph.center().y()) / m_graphScale)
             + rectViewport.center().y(),
         rectViewport.right(),
-        (0.0 - rectGraph.center().y()) / m_graphScale
+        ((0.0 - rectGraph.center().y()) / m_graphScale)
             + rectViewport.center().y()
     );
 
@@ -195,50 +195,43 @@ void calqapp::CalQGraph::paintEvent(QPaintEvent* event)
     {
         auto const& expression = m_expression.value();
 
-        painter.setPen(QPen{Qt::red});
-        auto const xPaddingMath = 0.1;
-        auto const xMinMath =
-            rectGraph.left() * MATH_UNITS_PER_GRAPH_UNITS - xPaddingMath;
-        auto const xMaxMath =
-            rectGraph.right() * MATH_UNITS_PER_GRAPH_UNITS + xPaddingMath;
+        auto const xMin{rectGraph.left() * MATH_UNITS_PER_GRAPH_UNITS};
+        auto const xMax{rectGraph.right() * MATH_UNITS_PER_GRAPH_UNITS};
 
-        QPointF mathStart{
-            qreal(xMinMath),
-            expression.evaluate(calqmath::Scalar{qreal(xMinMath)})
-                .value()
-                .toDouble()
+        auto const deltaFractionX{0.5 / rectViewport.width()};
+
+        QPointF prev{0.0, 0.0};
+        QPointF next{
+            xMin, expression.evaluate(calqmath::Scalar{xMin})->toDouble()
         };
 
-        auto const SAMPLE_COUNT{100};
-        for (auto i = 0; i < SAMPLE_COUNT; i++)
+        painter.setPen(QPen{Qt::red});
+        auto fractionX{0.0};
+        while (fractionX < 1.0)
         {
-            auto const xSample =
-                xMinMath
-                + ((xMaxMath - xMinMath) * (qreal(i) / (SAMPLE_COUNT - 1)));
-            QPointF const mathEnd{
-                xSample,
-                expression.evaluate(calqmath::Scalar{xSample})
-                    .value()
-                    .toDouble()
+            fractionX += deltaFractionX;
+
+            prev = next;
+
+            auto const xNext{(fractionX * (xMax - xMin)) + xMin};
+            next = {
+                xNext, expression.evaluate(calqmath::Scalar{xNext})->toDouble()
             };
 
             QPointF const viewportStart{
-                ((QPointF{mathStart.x(), -mathStart.y()}
-                  / MATH_UNITS_PER_GRAPH_UNITS)
+                ((QPointF{prev.x(), -prev.y()} / MATH_UNITS_PER_GRAPH_UNITS)
                  - rectGraph.center())
                     / m_graphScale
                 + rectViewport.center()
             };
             QPointF const viewportEnd{
-                ((QPointF{mathEnd.x(), -mathEnd.y()}
-                  / MATH_UNITS_PER_GRAPH_UNITS)
+                ((QPointF{next.x(), -next.y()} / MATH_UNITS_PER_GRAPH_UNITS)
                  - rectGraph.center())
                     / m_graphScale
                 + rectViewport.center()
             };
 
             painter.drawLine(viewportStart, viewportEnd);
-            mathStart = mathEnd;
         }
     }
 }
