@@ -13,6 +13,10 @@ namespace calqmath
 {
 class Functions;
 
+// Has a major, roughly linear, impact on performance
+size_t constexpr DEFAULT_BASE_2_PRECISION = 128;
+
+// For string interpretation
 size_t constexpr DEFAULT_BASE = 10;
 
 auto getBignumBackendPrecision(size_t base = DEFAULT_BASE) -> size_t;
@@ -28,30 +32,27 @@ enum class Sign : uint8_t
 class Scalar
 {
 public:
-    explicit Scalar(double number);
-
     static auto precisionMin() -> size_t;
     static auto precisionMax() -> size_t;
-    /*
-     * Precision gets clamped to the range returned by precisionMax and
-     * precisionMin.
-     */
-    explicit Scalar(size_t precision);
 
     static auto baseMin() -> size_t;
     static auto baseMax() -> size_t;
+
     /*
      * Base gets clamped to the range returned by baseMax and baseMin.
      */
     explicit Scalar(
-        std::string const& representation, size_t base = DEFAULT_BASE
+        std::string const& representation,
+        size_t precision = DEFAULT_BASE_2_PRECISION,
+        size_t base = DEFAULT_BASE
+    );
+
+    explicit Scalar(
+        double number = 0.0, size_t precision = DEFAULT_BASE_2_PRECISION
     );
 
     Scalar(Scalar&& other) noexcept;
     Scalar(Scalar const& other);
-
-    // Makes positive 0
-    Scalar();
 
     auto operator=(Scalar&& other) noexcept -> Scalar&;
     auto operator=(Scalar const& other) -> Scalar&;
@@ -99,6 +100,12 @@ public:
     friend Functions;
 
 private:
+    struct no_set
+    {
+    };
+
+    explicit Scalar(no_set, size_t precision = DEFAULT_BASE_2_PRECISION);
+
     std::unique_ptr<detail::ScalarImpl> p_impl;
 };
 } // namespace calqmath

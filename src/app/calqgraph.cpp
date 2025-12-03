@@ -242,9 +242,13 @@ void calqapp::CalQGraph::paintGL()
 
         auto const deltaFractionX{0.5 / rectViewport.width()};
 
+        size_t constexpr GRAPH_SCALAR_PRECISION{32};
+
         QPointF prev{0.0, 0.0};
         QPointF next{
-            xMin, expression.evaluate(calqmath::Scalar{xMin})->toDouble()
+            xMin,
+            expression.evaluate(calqmath::Scalar{xMin, GRAPH_SCALAR_PRECISION})
+                ->toDouble()
         };
 
         painter.setPen(functionPen);
@@ -257,7 +261,10 @@ void calqapp::CalQGraph::paintGL()
 
             auto const xNext{(fractionX * (xMax - xMin)) + xMin};
             next = {
-                xNext, expression.evaluate(calqmath::Scalar{xNext})->toDouble()
+                xNext,
+                expression
+                    .evaluate(calqmath::Scalar{xNext, GRAPH_SCALAR_PRECISION})
+                    ->toDouble()
             };
 
             QPointF const viewportStart{

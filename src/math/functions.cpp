@@ -5,7 +5,10 @@
 #define WRAP_UNARY_SCALAR(func, arg1)                                          \
     auto Functions::func(Scalar const& arg1) -> Scalar                         \
     {                                                                          \
-        Scalar result{};                                                       \
+        Scalar result{                                                         \
+            Scalar::no_set{},                                                  \
+            static_cast<size_t>(mpfr_get_prec(arg1.p_impl.get()))              \
+        };                                                                     \
         mpfr_##func(                                                           \
             result.p_impl.get(),                                               \
             arg1.p_impl.get(),                                                 \
@@ -17,7 +20,10 @@
 #define WRAP_UNARY_SCALAR_NO_ROUND(func, arg1)                                 \
     auto Functions::func(Scalar const& arg1) -> Scalar                         \
     {                                                                          \
-        Scalar result{};                                                       \
+        Scalar result{                                                         \
+            Scalar::no_set{},                                                  \
+            static_cast<size_t>(mpfr_get_prec(arg1.p_impl.get()))              \
+        };                                                                     \
         mpfr_##func(result.p_impl.get(), arg1.p_impl.get());                   \
         return result;                                                         \
     }
@@ -39,7 +45,10 @@ WRAP_UNARY_SCALAR_NO_ROUND(floor, argument);
 WRAP_UNARY_SCALAR_NO_ROUND(round, argument);
 auto Functions::roundeven(Scalar const& argument) -> Scalar
 {
-    Scalar result{};
+    Scalar result{
+        Scalar::no_set{},
+        static_cast<size_t>(mpfr_get_prec(argument.p_impl.get()))
+    };
     mpfr_rint(result.p_impl.get(), argument.p_impl.get(), MPFR_RNDN);
     return result;
 }
@@ -58,7 +67,7 @@ auto Functions::logn(Scalar const& base, Scalar const& argument) -> Scalar
     auto const precision{std::max(
         mpfr_get_prec(base.p_impl.get()), mpfr_get_prec(argument.p_impl.get())
     )};
-    Scalar result{detail::clampPrecisionFromMPFR(precision)};
+    Scalar result{Scalar::no_set{}, static_cast<size_t>(precision)};
 
     auto numerator = log(argument);
     auto denominator = log(base);

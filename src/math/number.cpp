@@ -14,11 +14,7 @@ namespace calqmath
 {
 void initBignumBackend()
 {
-    // Such a high default may have performance implications, but we aren't
-    // performing a lot of calculations. Most user input expressions will have a
-    // couple dozen calculations at most.
-    auto constexpr DEFAULT_MINIMUM_PRECISION{128};
-    mpfr_set_default_prec(mpfr_prec_t{DEFAULT_MINIMUM_PRECISION});
+    mpfr_set_default_prec(mpfr_prec_t{DEFAULT_BASE_2_PRECISION});
 }
 
 auto getBignumBackendPrecision(size_t const base) -> size_t
@@ -29,31 +25,32 @@ auto getBignumBackendPrecision(size_t const base) -> size_t
     return precision * std::numbers::ln2 / std::log(base);
 }
 
-Scalar::Scalar(double const number)
-{
-    p_impl = std::make_unique<detail::ScalarImpl>();
-    mpfr_init2(p_impl.get(), mpfr_get_default_prec());
-
-    mpfr_set_d(p_impl.get(), number, mpfr_get_default_rounding_mode());
-}
-
 auto Scalar::precisionMin() -> size_t { return detail::MIN_PRECISION; }
 auto Scalar::precisionMax() -> size_t { return detail::MAX_PRECISION; }
-
-Scalar::Scalar(size_t precision)
-{
-    p_impl = std::make_unique<detail::ScalarImpl>();
-    mpfr_init2(p_impl.get(), detail::clampPrecisionForMPFR(precision));
-
-    mpfr_set_zero(p_impl.get(), 1);
-}
 
 auto Scalar::baseMin() -> size_t { return detail::MIN_BASE; }
 auto Scalar::baseMax() -> size_t { return detail::MAX_BASE; }
 
-Scalar::Scalar(std::string const& representation, size_t const base)
+Scalar::Scalar(no_set, size_t const precision)
 {
-    *this = Scalar{};
+    p_impl = std::make_unique<detail::ScalarImpl>();
+    mpfr_init2(p_impl.get(), detail::clampPrecisionForMPFR(precision));
+}
+
+Scalar::Scalar(double const number, size_t const precision)
+{
+    p_impl = std::make_unique<detail::ScalarImpl>();
+    mpfr_init2(p_impl.get(), detail::clampPrecisionForMPFR(precision));
+
+    mpfr_set_d(p_impl.get(), number, mpfr_get_default_rounding_mode());
+}
+
+Scalar::Scalar(
+    std::string const& representation, size_t const precision, size_t const base
+)
+{
+    p_impl = std::make_unique<detail::ScalarImpl>();
+    mpfr_init2(p_impl.get(), detail::clampPrecisionForMPFR(precision));
 
     mpfr_set_str(
         p_impl.get(),
@@ -83,10 +80,6 @@ Scalar::Scalar(Scalar&& other) noexcept { *this = std::move(other); }
 
 Scalar::Scalar(Scalar const& other) { *this = other; }
 
-Scalar::Scalar()
-{
-    *this = Scalar{detail::clampPrecisionFromMPFR(mpfr_get_default_prec())};
-}
 Scalar::~Scalar()
 {
     // Support the C++ style move constructor by checking if this value was
