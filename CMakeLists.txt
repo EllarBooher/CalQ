@@ -81,16 +81,24 @@ target_link_libraries(CalQApp PRIVATE Qt::Core Qt::Widgets CalQInterpreter)
 target_link_libraries(CalQApp PRIVATE Qt6::Widgets)
 
 ################################################################################
-# CalQTest
+# CalQTest / CalQBenchmark
 #   Unit testing for all CalQ targets
 ################################################################################
 
 qt_add_executable(CalQTest
-  src/test/mathtest.cpp
+  src/test/test.cpp
 )
+qt_add_executable(CalQBenchmark
+  src/test/benchmark.cpp
+)
+
 set_target_properties(CalQTest PROPERTIES CXX_STANDARD 23)
-target_link_libraries(CalQTest PRIVATE Qt::Core Qt::Test CalQInterpreter)
+target_link_libraries(CalQTest PRIVATE Qt::Core Qt::Test CalQInterpreter CalQMath)
 target_include_directories(CalQTest PRIVATE src/)
+
+set_target_properties(CalQBenchmark PROPERTIES CXX_STANDARD 23)
+target_link_libraries(CalQBenchmark PRIVATE Qt::Core Qt::Test CalQInterpreter CalQMath)
+target_include_directories(CalQBenchmark PRIVATE src/)
 
 ################################################################################
 
@@ -100,7 +108,7 @@ if(CLANG_TIDY AND CLANG_TIDY_ENABLE)
   cmake_path(APPEND clang_tidy_config_path "${CMAKE_SOURCE_DIR}" ".clang-tidy")
   message(STATUS "Enabling clang-tidy. Using: ${CLANG_TIDY}. Config at: ${clang_tidy_config_path}")
   set_target_properties(
-    CalQMath CalQInterpreter CalQApp # CalQTest
+    CalQMath CalQInterpreter CalQApp
     PROPERTIES
     CXX_CLANG_TIDY "${CLANG_TIDY};--config-file=${clang_tidy_config_path};--header-filter=^.*\/src\/.*$"
   )
@@ -108,7 +116,7 @@ endif()
 
 include(GNUInstallDirs)
 
-install(TARGETS CalQApp CalQTest
+install(TARGETS CalQApp CalQTest CalQBenchmark
   BUNDLE  DESTINATION .
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

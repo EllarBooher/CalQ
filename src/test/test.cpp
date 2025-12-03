@@ -2,13 +2,14 @@
 #include "interpreter/interpreter.h"
 #include "interpreter/parser.h"
 
+#include "math/number.h"
+
 #include <QByteArray>
 #include <QObject>
 #include <QString>
 #include <QTest>
 #include <QtLogging>
 
-#include "math/number.h"
 #include <expected>
 #include <optional>
 #include <string>
@@ -27,7 +28,7 @@
  * values are identical, instead of using relative error.
  */
 
-class TestMathInterpreter : public QObject
+class CalQTest : public QObject
 {
     Q_OBJECT
 private slots:
@@ -762,7 +763,7 @@ void testParserParantheses(calqmath::FunctionDatabase const& functions)
 }
 } // namespace
 
-void TestMathInterpreter::test()
+void CalQTest::test()
 {
     calqmath::Interpreter const interpreter{};
 
@@ -796,5 +797,5 @@ void TestMathInterpreter::test()
     testMinimalPrecision(interpreter);
 }
 
-QTEST_MAIN(TestMathInterpreter)
-#include "mathtest.moc"
+QTEST_MAIN(CalQTest)
+#include "test.moc"

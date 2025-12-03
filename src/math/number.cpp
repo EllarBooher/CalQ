@@ -17,7 +17,7 @@ void initBignumBackend()
     // Such a high default may have performance implications, but we aren't
     // performing a lot of calculations. Most user input expressions will have a
     // couple dozen calculations at most.
-    auto constexpr DEFAULT_MINIMUM_PRECISION{500};
+    auto constexpr DEFAULT_MINIMUM_PRECISION{128};
     mpfr_set_default_prec(mpfr_prec_t{DEFAULT_MINIMUM_PRECISION});
 }
 
