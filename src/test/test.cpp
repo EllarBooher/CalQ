@@ -224,7 +224,7 @@ void testInterpret(calqmath::Interpreter const& interpreter)
 
     for (auto const& [input, output] : successTestCases)
     {
-        QCOMPARE(interpreter.interpret(input), output);
+        QCOMPARE(interpreter.expression(input)->evaluate(), output);
     }
 
     std::vector<std::tuple<std::string, calqmath::InterpretError>> const
@@ -234,7 +234,7 @@ void testInterpret(calqmath::Interpreter const& interpreter)
 
     for (auto const& [input, output] : failureTestCases)
     {
-        QCOMPARE(interpreter.interpret(input), std::unexpected(output));
+        QCOMPARE(interpreter.expression(input), std::unexpected(output));
     }
 }
 
@@ -254,7 +254,7 @@ void testOrderOfOperators(calqmath::Interpreter const& interpreter)
         };
     for (auto const& [input, output] : PEMDASTestCases)
     {
-        auto const actual = interpreter.interpret(input);
+        auto const actual = interpreter.expression(input)->evaluate();
 
         QCOMPARE(actual, output);
     }
@@ -274,7 +274,7 @@ void testFunctionParsing(calqmath::Interpreter const& interpreter)
 
     for (auto const& [input, output] : testCases)
     {
-        QCOMPARE(interpreter.interpret(input), output);
+        QCOMPARE(interpreter.expression(input)->evaluate(), output);
     }
 }
 
@@ -286,7 +286,9 @@ void testAllFunctions(
     for (auto const& function : functions.unaryNames())
     {
         QVERIFY(function != nullptr);
-        QVERIFY(interpreter.interpret(function->name + "(1.0)").has_value());
+        QVERIFY(interpreter.expression(function->name + "(1.0)")
+                    ->evaluate()
+                    .has_value());
     }
 }
 
@@ -377,7 +379,9 @@ void testMinimalPrecision(calqmath::Interpreter const& interpreter)
     {
         std::string const input{std::format("1{0}+1-1{0}", std::string(i, '0'))
         };
-        QCOMPARE(interpreter.interpret(input), calqmath::Scalar{"1"});
+        QCOMPARE(
+            interpreter.expression(input)->evaluate(), calqmath::Scalar{"1"}
+        );
     }
 }
 

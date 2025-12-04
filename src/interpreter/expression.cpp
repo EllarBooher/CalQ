@@ -30,6 +30,7 @@ auto Expression::operator=(Expression const& other) -> Expression&
     }
     m_operators = other.m_operators;
     m_function = other.m_function;
+    m_hasVariableCached = other.m_hasVariableCached;
 
     return *this;
 }
@@ -41,6 +42,7 @@ auto Expression::operator=(Expression&& other) noexcept -> Expression&
     m_terms = std::move(other).m_terms;
     m_operators = std::move(other).m_operators;
     m_function = std::move(other).m_function;
+    m_hasVariableCached = other.m_hasVariableCached;
 
     return *this;
 }
@@ -236,6 +238,8 @@ auto Expression::evaluate(Scalar const& variable) const -> std::optional<Scalar>
 
 auto Expression::termCount() const -> size_t { return m_terms.size(); }
 
+auto Expression::hasVariable() const -> bool { return m_hasVariableCached; }
+
 void Expression::reset(Term&& initial)
 {
     m_terms.clear();
@@ -286,6 +290,26 @@ auto Expression::appendExpression(BinaryOp mathOp) -> Expression&
     auto& term = append(mathOp);
     term = Expression();
     return std::get<Expression>(term);
+}
+
+void Expression::cacheHasVariable()
+{
+    m_hasVariableCached = false;
+    for (auto& term : m_terms)
+    {
+        std::visit(
+            overloads{
+                [](Scalar const&) {},
+                [&](Expression& expression)
+        {
+            expression.cacheHasVariable();
+            m_hasVariableCached |= expression.hasVariable();
+        },
+                [&](InputVariable const&) { m_hasVariableCached = true; }
+            },
+            *term
+        );
+    }
 }
 
 auto Expression::stringTerm(size_t index) const -> std::string

@@ -58,16 +58,11 @@ public:
      * @brief interpret - Parses user input as a mathematical expression and
      * returns the evaluated answer.
      *
-     * Chains all methods, to get from raw user input to the final mathematical
-     * result or error.
-     *
-     * @param rawInput - The stringified equation.
+     * @param rawInput - The stringified input.
      */
-    [[nodiscard]] auto interpret(std::string const& rawInput) const
-        -> std::expected<Scalar, InterpretError>;
-
     [[nodiscard]] auto expression(std::string const& rawInput) const
         -> std::expected<Expression, InterpretError>;
+
 private:
     FunctionDatabase m_functions;
 };

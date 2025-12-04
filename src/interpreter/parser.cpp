@@ -118,7 +118,7 @@ auto calqmath::Parser::parse(
             {
                 tokens.pop_front();
 
-                // Variable 'x' appears where we expect a new team. E.g,
+                // Variable 'x' appears where we expect a new term. E.g,
                 // semantically swap like 5+2 <-> 5+x.
                 if (negate)
                 {
@@ -231,6 +231,11 @@ auto calqmath::Parser::parse(
     if (expectNewTerm || depthStack.size() > 1)
     {
         return std::nullopt;
+    }
+
+    if (result.has_value())
+    {
+        result->cacheHasVariable();
     }
 
     return result;

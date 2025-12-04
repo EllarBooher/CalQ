@@ -48,12 +48,6 @@ calqapp::MainWindow::MainWindow(QWidget* parent)
     );
     QSize constexpr GRAPH_MINIMUM_SIZE{500, 500};
     m_graph->setMinimumSize(GRAPH_MINIMUM_SIZE);
-
-    QPalette pal{};
-    pal.setColor(QPalette::Window, Qt::white);
-
-    m_graph->setPalette(pal);
-    m_graph->updateGeometry();
     m_graph->setExpression(m_interpreter->expression("sin(x)").value());
 
     m_ui->history->setModel(m_messagesModel.get());
@@ -76,6 +70,8 @@ auto toString(
 
     switch (result.error())
     {
+    case calqmath::InterpretError::LexError:
+        return "Lexical Error";
     case calqmath::InterpretError::ParseError:
         return "Parse Error";
     case calqmath::InterpretError::EvaluationError:
@@ -85,24 +81,14 @@ auto toString(
     }
 }
 
-auto toString(
-    std::expected<calqmath::Scalar, calqmath::InterpretError> const& result
-) -> QString
+auto toString(std::optional<calqmath::Scalar> const& result) -> QString
 {
     if (result.has_value())
     {
         return QString::fromStdString(result.value().toString());
     }
 
-    switch (result.error())
-    {
-    case calqmath::InterpretError::ParseError:
-        return "Parse Error";
-    case calqmath::InterpretError::EvaluationError:
-        return "Evaluation Error";
-    default:
-        return "Unknown Error";
-    }
+    return "Evaluation Error";
 }
 } // namespace
 
@@ -116,16 +102,18 @@ void calqapp::MainWindow::onLineEnterPressed()
 
     auto const messageStd = newMessage.toStdString();
 
-    auto const prettified = "> " + calqmath::Interpreter::prettify(messageStd);
-    m_messages->append(QString::fromUtf8(prettified));
+    auto const pretty = "> " + calqmath::Interpreter::prettify(messageStd);
+    auto const expression = m_interpreter->expression(messageStd);
 
-    auto const mathResult = m_interpreter->expression(messageStd);
-    m_messages->append(::toString(mathResult));
-
-    if (mathResult.has_value())
+    if (!expression.has_value())
     {
-        setGraphedExpression(mathResult.value());
+        return;
     }
+
+    setGraphedExpression(expression.value());
+
+    m_messages->append(QString::fromUtf8(pretty));
+    m_messages->append(::toString(expression));
 
     m_messagesModel->setStringList(*m_messages);
     m_ui->input->clear();
@@ -142,11 +130,19 @@ void calqapp::MainWindow::onLineTextUpdated(QString const& newText)
 
     auto const messageStd = newText.toStdString();
 
-    auto const equation =
+    auto const pretty =
         QString::fromUtf8(calqmath::Interpreter::prettify(messageStd));
-    auto const result = ::toString(m_interpreter->interpret(messageStd));
 
-    setPreviewLabels(equation, result);
+    auto const expression = m_interpreter->expression(messageStd);
+
+    if (!expression.has_value() || expression->hasVariable())
+    {
+        setPreviewLabels(pretty, ::toString(expression));
+        return;
+    }
+
+    auto const evaluated = expression->evaluate();
+    setPreviewLabels(pretty, ::toString(evaluated));
 }
 
 void calqapp::MainWindow::setPreviewLabels(

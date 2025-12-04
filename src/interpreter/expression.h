@@ -86,6 +86,8 @@ public:
 
     [[nodiscard]] auto termCount() const -> size_t;
 
+    [[nodiscard]] auto hasVariable() const -> bool;
+
     /**
      * @brief reset - Clears this Expression and leaves in its place a single
      * term.
@@ -145,6 +147,8 @@ public:
      */
     auto appendExpression(BinaryOp mathOp) -> Expression&;
 
+    void cacheHasVariable();
+
 private:
     [[nodiscard]] auto stringTerm(size_t index) const -> std::string;
     [[nodiscard]] auto evaluateTerm(size_t index, Scalar const& variable) const
@@ -161,5 +165,6 @@ private:
     // empty
     std::vector<std::unique_ptr<Term>> m_terms;
     std::vector<BinaryOp> m_operators;
+    bool m_hasVariableCached{false};
 };
 } // namespace calqmath

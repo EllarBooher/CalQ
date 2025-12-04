@@ -7,7 +7,6 @@
 #include <cctype>
 #include <expected>
 #include <string>
-#include <vector>
 
 namespace
 {
@@ -36,30 +35,6 @@ Interpreter::Interpreter()
 auto Interpreter::prettify(std::string const& rawInput) -> std::string
 {
     return trim(rawInput);
-}
-
-auto Interpreter::interpret(std::string const& rawInput) const
-    -> std::expected<Scalar, InterpretError>
-{
-    auto const tokens = Lexer::convert(rawInput);
-    if (!tokens.has_value())
-    {
-        return std::unexpected(InterpretError::LexError);
-    }
-
-    auto const expression = Parser::parse(m_functions, tokens.value());
-    if (!expression.has_value())
-    {
-        return std::unexpected(InterpretError::ParseError);
-    }
-
-    auto const evaluated = expression.value().evaluate();
-    if (!evaluated.has_value())
-    {
-        return std::unexpected(InterpretError::EvaluationError);
-    }
-
-    return evaluated.value();
 }
 
 auto Interpreter::expression(std::string const& rawInput) const
