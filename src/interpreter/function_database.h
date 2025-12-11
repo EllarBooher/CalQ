@@ -1,7 +1,6 @@
 #pragma once
 
-#include "math/number.h"
-#include <functional>
+#include "types.h"
 #include <map>
 #include <optional>
 #include <ranges>
@@ -9,19 +8,6 @@
 
 namespace calqmath
 {
-struct UnaryFunction
-{
-    UnaryFunction(std::string name, std::function<Scalar(Scalar)> function)
-        : name(std::move(name))
-        , function(std::move(function))
-    {
-    }
-
-    std::string name; // NOLINT(misc-non-private-member-variables-in-classes)
-    std::function<Scalar(Scalar)>
-        function; // NOLINT(misc-non-private-member-variables-in-classes)
-};
-
 /**
  * @brief The FunctionDatabase class stores loaded functions for easy lookup by
  * the interpreter.

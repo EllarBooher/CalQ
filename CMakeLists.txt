@@ -59,6 +59,9 @@ qt_add_library(CalQInterpreter
   src/interpreter/function_database.h  src/interpreter/function_database.cpp
   src/interpreter/parser.h             src/interpreter/parser.cpp
   src/interpreter/interpreter.h        src/interpreter/interpreter.cpp
+  src/interpreter/types.h
+  src/interpreter/graph.h
+  src/interpreter/graph.cpp
 )
 set_target_properties(CalQInterpreter PROPERTIES CXX_STANDARD 23)
 target_include_directories(CalQInterpreter PRIVATE src/)
@@ -110,6 +113,21 @@ if(CLANG_TIDY AND CLANG_TIDY_ENABLE)
     CalQMath CalQInterpreter CalQApp
     PROPERTIES
     CXX_CLANG_TIDY "${CLANG_TIDY};--config-file=${clang_tidy_config_path};--header-filter=^.*\/src\/.*$"
+  )
+endif()
+
+################################################################################
+
+option(CALQ_DEBUG "Enable extra debug features." OFF)
+if(CALQ_DEBUG)
+  target_compile_definitions(
+    CalQMath PUBLIC CALQ_DEBUG
+  )
+  target_compile_definitions(
+    CalQInterpreter PUBLIC CALQ_DEBUG
+  )
+  target_compile_definitions(
+    CalQApp PUBLIC CALQ_DEBUG
   )
 endif()
 

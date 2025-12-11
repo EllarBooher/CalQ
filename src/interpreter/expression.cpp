@@ -1,11 +1,11 @@
 #include "expression.h"
 
-#include "function_database.h"
+#include "math/functions.h"
+#include <algorithm>
 #include <cassert>
 #include <cctype>
 #include <cstddef>
 #include <deque>
-#include <expected>
 #include <optional>
 #include <string>
 #include <variant>
@@ -234,6 +234,159 @@ auto Expression::evaluate(Scalar const& variable) const -> std::optional<Scalar>
     }
 
     return result;
+}
+
+namespace
+{
+auto getCurveOfTerm(Term const& term, GraphCurve const& input) -> GraphCurve
+{
+    auto const visitor{overloads{
+        [&](Scalar const& scalar)
+    {
+        GraphCurve output;
+
+        for (auto const& inputChunk : input.chunks)
+        {
+            GraphChunk outputChunk;
+
+            outputChunk.beginX = inputChunk.beginX;
+            outputChunk.endX = inputChunk.endX;
+
+            outputChunk.beginY = scalar;
+            outputChunk.middleXDelta = inputChunk.middleXDelta;
+
+            outputChunk.middleY.resize(inputChunk.middleY.size(), scalar);
+
+            outputChunk.endY = scalar;
+
+            output.chunks.emplace_back(std::move(outputChunk));
+        }
+
+        return output;
+    },
+        [&](InputVariable const&)
+    {
+        GraphCurve output;
+
+        for (auto const& inputChunk : input.chunks)
+        {
+            GraphChunk outputChunk;
+
+            outputChunk.beginX = inputChunk.beginX;
+            outputChunk.endX = inputChunk.endX;
+
+            outputChunk.beginY = inputChunk.beginX;
+            outputChunk.endY = inputChunk.endX;
+
+            outputChunk.middleXDelta = inputChunk.middleXDelta;
+
+            outputChunk.middleY.reserve(inputChunk.middleY.size());
+
+            ptrdiff_t const gridIdxBegin{
+                Functions::floor(outputChunk.beginX / outputChunk.middleXDelta)
+                    .toSignedInt()
+                + 1
+            };
+            ptrdiff_t const gridIdxEnd{
+                Functions::ceil(outputChunk.endX / outputChunk.middleXDelta)
+                    .toSignedInt()
+                - 1
+            };
+
+            for (ptrdiff_t gridIdx = gridIdxBegin; gridIdx <= gridIdxEnd;
+                 gridIdx += 1)
+            {
+                outputChunk.middleY.emplace_back(
+                    Scalar{gridIdx} * outputChunk.middleXDelta
+                );
+            }
+
+            output.chunks.emplace_back(std::move(outputChunk));
+        }
+
+        return output;
+    },
+        [&](Expression const& expression) { return expression.graph(input); }
+    }};
+
+    auto result = std::visit(visitor, term);
+
+#ifdef CALQ_DEBUG
+    for (auto& chunk : result.chunks)
+    {
+        GraphChunk::setDebug(chunk);
+    }
+#endif
+
+    return result;
+}
+} // namespace
+
+auto Expression::graph(GraphCurve const& input) const -> GraphCurve
+{
+    std::vector<GraphCurve> curvesByTerm{};
+    curvesByTerm.reserve(m_terms.size());
+
+    for (auto const& term : m_terms)
+    {
+        curvesByTerm.emplace_back(getCurveOfTerm(*term, input));
+    }
+
+    GraphCurve output{curvesByTerm[0]};
+
+    assert(m_terms.size() == m_operators.size() + 1);
+
+    if (!m_operators.empty())
+    {
+        for (size_t opIdx = 0; opIdx < m_operators.size(); opIdx++)
+        {
+            auto const currentOp{m_operators[opIdx]};
+
+            GraphCurve right{curvesByTerm[opIdx + 1]};
+
+            if (opIdx < m_operators.size() - 1
+                && (currentOp != BinaryOp::Multiply
+                    && currentOp != BinaryOp::Divide))
+            {
+                auto nextOpIdx = opIdx + 1;
+                auto nextOp = m_operators[nextOpIdx];
+                while (nextOp == BinaryOp::Multiply
+                       || nextOp == BinaryOp::Divide)
+                {
+                    right =
+                        mergeCurves(right, curvesByTerm[nextOpIdx + 1], nextOp);
+
+                    nextOpIdx += 1;
+
+                    if (nextOpIdx >= m_operators.size())
+                    {
+                        break;
+                    }
+                    nextOp = m_operators[nextOpIdx];
+                }
+
+                opIdx = nextOpIdx;
+            }
+
+            output = mergeCurves(output, right, currentOp);
+        }
+    }
+
+    if (m_function != nullptr)
+    {
+        for (auto& chunk : output.chunks)
+        {
+            chunk.beginY = m_function->function(chunk.beginY);
+            chunk.endY = m_function->function(chunk.endY);
+
+            for (auto& middleY : chunk.middleY)
+            {
+                middleY = m_function->function(middleY);
+            }
+        }
+    }
+
+    return output;
 }
 
 auto Expression::termCount() const -> size_t { return m_terms.size(); }

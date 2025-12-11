@@ -14,9 +14,9 @@ auto FunctionDatabase::createWithDefaults() -> FunctionDatabase
 {
     FunctionDatabase result{};
 
-    std::initializer_list<UnaryFunction> const functions = {
-        {"id", Functions::id},       {"abs", Functions::abs},
-        {"ceil", Functions::ceil},   {"floor", Functions::floor},
+    std::vector<UnaryFunction> const functions = {
+        {"id", Functions::id},       {"floor", Functions::floor},
+        {"abs", Functions::abs},     {"ceil", Functions::ceil},
         {"round", Functions::round}, {"roundeven", Functions::roundeven},
         {"trunc", Functions::trunc}, {"sqrt", Functions::sqrt},
         {"cbrt", Functions::cbrt},   {"exp", Functions::exp},

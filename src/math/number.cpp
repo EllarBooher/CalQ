@@ -45,6 +45,14 @@ Scalar::Scalar(double const number, size_t const precision)
     mpfr_set_d(p_impl.get(), number, mpfr_get_default_rounding_mode());
 }
 
+Scalar::Scalar(ptrdiff_t const number, size_t const precision)
+{
+    p_impl = std::make_unique<detail::ScalarImpl>();
+    mpfr_init2(p_impl.get(), detail::clampPrecisionForMPFR(precision));
+
+    mpfr_set_si(p_impl.get(), number, mpfr_get_default_rounding_mode());
+}
+
 Scalar::Scalar(
     std::string const& representation, size_t const precision, size_t const base
 )
@@ -320,6 +328,16 @@ auto Scalar::toDouble() const -> double
     return mpfr_get_d(p_impl.get(), mpfr_get_default_rounding_mode());
 }
 
+auto Scalar::toUnsignedInt() const -> size_t
+{
+    return mpfr_get_ui(p_impl.get(), MPFR_RNDD);
+}
+
+auto Scalar::toSignedInt() const -> ptrdiff_t
+{
+    return mpfr_get_si(p_impl.get(), MPFR_RNDD);
+}
+
 auto Scalar::operator==(Scalar const& rhs) const -> bool
 {
     return mpfr_equal_p(p_impl.get(), rhs.p_impl.get()) != 0;
@@ -352,6 +370,47 @@ auto Scalar::operator-(Scalar const& rhs) const -> Scalar
         mpfr_get_default_rounding_mode()
     );
     return result;
+}
+
+auto Scalar::min(Scalar const& lhs, Scalar const& rhs) -> Scalar
+{
+    Scalar result{};
+    mpfr_min(
+        result.p_impl.get(),
+        lhs.p_impl.get(),
+        rhs.p_impl.get(),
+        mpfr_get_default_rounding_mode()
+    );
+    return result;
+}
+
+auto Scalar::max(Scalar const& lhs, Scalar const& rhs) -> Scalar
+{
+    Scalar result{};
+    mpfr_max(
+        result.p_impl.get(),
+        lhs.p_impl.get(),
+        rhs.p_impl.get(),
+        mpfr_get_default_rounding_mode()
+    );
+    return result;
+}
+
+auto Scalar::operator<=>(Scalar const& rhs) const -> std::weak_ordering
+{
+    auto const comparison{mpfr_cmp(p_impl.get(), rhs.p_impl.get())};
+
+    if (comparison < 0)
+    {
+        return std::weak_ordering::less;
+    }
+
+    if (comparison > 0)
+    {
+        return std::weak_ordering::greater;
+    }
+
+    return std::weak_ordering::equivalent;
 }
 
 auto Scalar::operator*(Scalar const& rhs) const -> Scalar

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "expression.h"
+#include "function_database.h"
 #include "lexer.h"
 #include <span>
 

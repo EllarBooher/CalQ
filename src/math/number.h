@@ -50,6 +50,9 @@ public:
     explicit Scalar(
         double number = 0.0, size_t precision = DEFAULT_BASE_2_PRECISION
     );
+    explicit Scalar(
+        ptrdiff_t number, size_t precision = DEFAULT_BASE_2_PRECISION
+    );
 
     Scalar(Scalar&& other) noexcept;
     Scalar(Scalar const& other);
@@ -87,6 +90,18 @@ public:
 
     [[nodiscard]] auto toDouble() const -> double;
 
+    /**
+     * @brief toUnsignedInt - Rounds Scalar into an unsigned integer, towards
+     * negative infinity.
+     */
+    [[nodiscard]] auto toUnsignedInt() const -> size_t;
+
+    /**
+     * @brief toUnsignedInt - Rounds Scalar into a signed integer, towards
+     * negative infinity.
+     */
+    [[nodiscard]] auto toSignedInt() const -> ptrdiff_t;
+
     auto operator==(Scalar const& rhs) const -> bool;
     auto operator!=(Scalar const& rhs) const -> bool;
 
@@ -96,6 +111,11 @@ public:
     auto operator/(Scalar const& rhs) const -> Scalar;
 
     auto operator-() const -> Scalar;
+
+    static auto min(Scalar const&, Scalar const&) -> Scalar;
+    static auto max(Scalar const&, Scalar const&) -> Scalar;
+
+    auto operator<=>(Scalar const& rhs) const -> std::weak_ordering;
 
     friend Functions;
 

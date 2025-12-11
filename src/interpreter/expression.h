@@ -1,10 +1,10 @@
 #pragma once
 
-#include "function_database.h"
-#include <algorithm>
+#include "graph.h"
+#include "math/number.h"
+#include "types.h"
+
 #include <cassert>
-#include <cstdint>
-#include <expected>
 #include <memory>
 #include <optional>
 #include <string>
@@ -13,14 +13,6 @@
 
 namespace calqmath
 {
-enum class BinaryOp : uint8_t
-{
-    Plus,
-    Minus,
-    Multiply,
-    Divide
-};
-
 // A variable input, indicating it should be substituted for an externally
 // provided value. There is a single variable across a single expression.
 struct InputVariable : std::monostate
@@ -83,6 +75,14 @@ public:
      */
     [[nodiscard]] auto evaluate(Scalar const& variable = Scalar::zero()) const
         -> std::optional<Scalar>;
+
+    /*
+     * With a starting curve, evolve each (x,y) point to (x,E(y)) where E is
+     * this expression. Extra points on the x-axis are added, but not for
+     * precision: They are added to capture the detail of discontinuities or
+     * undefined intervals of the domain.
+     */
+    [[nodiscard]] auto graph(GraphCurve const&) const -> GraphCurve;
 
     [[nodiscard]] auto termCount() const -> size_t;
 

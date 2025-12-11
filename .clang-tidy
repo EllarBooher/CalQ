@@ -15,6 +15,9 @@
 # readability-named-parameter
 #  Gets in the way of eliding parameter names that are obvious from context, and in my opinion reduces readability in that case.
 #
+# modernize-use-nullptr
+#  False positive with std::weak_ordering, and option to filter that case was not working.
+#
 
 HeaderFileExtensions: ['', 'h','hh','hpp','hxx']
 ImplementationFileExtensions: ['c','cc','cpp','cxx']
@@ -28,6 +31,7 @@ Checks: >
   -misc-include-cleaner,
   -misc-no-recursion,
   modernize-*,
+  -modernize-use-nullptr,
   performance-*,
   portability-*,
   -portability-avoid-pragma-once,

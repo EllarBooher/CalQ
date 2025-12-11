@@ -1,5 +1,7 @@
 #include "calqgraph.h"
 
+#include "math/functions.h"
+
 #include <QMouseEvent>
 #include <QOpenGLFunctions>
 #include <QPaintEvent>
@@ -42,6 +44,45 @@ constexpr double MAJOR_DISTANCE_MATH_UNITS = 1.0;
 constexpr double MATH_UNITS_PER_GRAPH_UNITS =
     MAJOR_DISTANCE_MATH_UNITS / MAJOR_DISTANCE_GRAPH_UNITS;
 
+namespace
+{
+void draw(
+    QPainter& painter,
+    QPen const& functionEndpointPen,
+    QPen const& functionPen,
+    QRectF const& rectGraph,
+    QRectF const& rectViewport,
+    double graphScale,
+    calqmath::Scalar const& currentX,
+    calqmath::Scalar const& currentY,
+    calqmath::Scalar const& nextX,
+    calqmath::Scalar const& nextY
+)
+{
+    QPointF const viewportStart{
+        ((QPointF{currentX.toDouble(), -currentY.toDouble()}
+          / MATH_UNITS_PER_GRAPH_UNITS)
+         - rectGraph.center())
+            / graphScale
+        + rectViewport.center()
+    };
+    QPointF const viewportEnd{
+        ((QPointF{nextX.toDouble(), -nextY.toDouble()}
+          / MATH_UNITS_PER_GRAPH_UNITS)
+         - rectGraph.center())
+            / graphScale
+        + rectViewport.center()
+    };
+
+    painter.setPen(functionEndpointPen);
+    painter.drawPoint(viewportStart);
+    painter.drawPoint(viewportEnd);
+
+    painter.setPen(functionPen);
+    painter.drawLine(viewportStart, viewportEnd);
+}
+} // namespace
+
 void calqapp::CalQGraph::paintGL()
 {
     QOpenGLFunctions* glFunc = QOpenGLContext::currentContext()->functions();
@@ -64,6 +105,7 @@ void calqapp::CalQGraph::paintGL()
     };
 
     QPen const functionPen{Qt::red, 2, Qt::SolidLine};
+    QPen const functionEndpointPen{Qt::red, 4, Qt::SolidLine};
     QPen const axisPen{QColor{25, 25, 25}, 2, Qt::SolidLine};
     QPen const majorPen{QColor{70, 70, 70}, 1, Qt::SolidLine};
 
@@ -105,12 +147,14 @@ void calqapp::CalQGraph::paintGL()
             QTextOption{Qt::AlignRight | Qt::AlignVCenter}
         );
 
-        auto const minorXMin =
-            std::floor(rectGraph.left() / MINOR_DISTANCE_GRAPH_UNITS);
-        auto const minorXMax =
-            std::ceil(rectGraph.right() / MINOR_DISTANCE_GRAPH_UNITS);
+        auto const minorXMin = static_cast<ptrdiff_t>(
+            std::floor(rectGraph.left() / MINOR_DISTANCE_GRAPH_UNITS)
+        );
+        auto const minorXMax = static_cast<ptrdiff_t>(
+            std::ceil(rectGraph.right() / MINOR_DISTANCE_GRAPH_UNITS)
+        );
 
-        for (int32_t xIdx = minorXMin; xIdx <= minorXMax; xIdx += 1)
+        for (auto xIdx = minorXMin; xIdx <= minorXMax; xIdx += 1)
         {
             bool const isMajor = (xIdx % MINOR_PER_MAJOR) == 0;
             auto const isAxis{xIdx == 0};
@@ -158,10 +202,12 @@ void calqapp::CalQGraph::paintGL()
             }
         }
 
-        auto const minorYMin =
-            std::floor(rectGraph.top() / MINOR_DISTANCE_GRAPH_UNITS);
-        auto const minorYMax =
-            std::ceil(rectGraph.bottom() / MINOR_DISTANCE_GRAPH_UNITS);
+        auto const minorYMin = static_cast<ptrdiff_t>(
+            std::floor(rectGraph.top() / MINOR_DISTANCE_GRAPH_UNITS)
+        );
+        auto const minorYMax = static_cast<ptrdiff_t>(
+            std::ceil(rectGraph.bottom() / MINOR_DISTANCE_GRAPH_UNITS)
+        );
         for (int32_t yIdx = minorYMin; yIdx <= minorYMax; yIdx += 1)
         {
             bool const isMajor = (yIdx % MINOR_PER_MAJOR) == 0;
@@ -233,65 +279,82 @@ void calqapp::CalQGraph::paintGL()
         );
     }
 
-    if (m_expression.has_value())
+    if (m_expression.has_value() && rectViewport.width() > 0.0)
     {
         auto const& expression = m_expression.value();
 
         auto const xMin{rectGraph.left() * MATH_UNITS_PER_GRAPH_UNITS};
         auto const xMax{rectGraph.right() * MATH_UNITS_PER_GRAPH_UNITS};
 
-        auto const deltaFractionX{0.5 / rectViewport.width()};
+        auto const middleXDelta{2.0 * (xMax - xMin) / rectViewport.width()};
 
-        size_t constexpr GRAPH_SCALAR_PRECISION{32};
+        auto curve{calqmath::GraphCurve::generateUnitLine(
+            calqmath::Scalar{xMin},
+            calqmath::Scalar{xMax},
+            calqmath::Scalar{middleXDelta}
+        )};
 
-        QPointF prev{0.0, 0.0};
-        QPointF next{
-            xMin,
-            expression.evaluate(calqmath::Scalar{xMin, GRAPH_SCALAR_PRECISION})
-                ->toDouble()
-        };
+        curve = expression.graph(curve);
 
-        painter.setPen(functionPen);
-        auto fractionX{0.0};
-        while (fractionX < 1.0)
+        using calqmath::Scalar;
+
+        for (auto const& chunk : curve.chunks)
         {
-            fractionX += deltaFractionX;
-
-            auto const oldSlope = (next.y() - prev.y()) / (next.x() - prev.x());
-            prev = next;
-
-            auto const xNext{(fractionX * (xMax - xMin)) + xMin};
-            next = {
-                xNext,
-                expression
-                    .evaluate(calqmath::Scalar{xNext, GRAPH_SCALAR_PRECISION})
-                    ->toDouble()
+            ptrdiff_t const gridIdxBegin{
+                calqmath::Functions::floor(chunk.beginX / chunk.middleXDelta)
+                    .toSignedInt()
+                + 1
+            };
+            ptrdiff_t const gridIdxEnd{
+                calqmath::Functions::ceil(chunk.endX / chunk.middleXDelta)
+                    .toSignedInt()
+                - 1
             };
 
-            QPointF const viewportStart{
-                ((QPointF{prev.x(), -prev.y()} / MATH_UNITS_PER_GRAPH_UNITS)
-                 - rectGraph.center())
-                    / m_graphScale
-                + rectViewport.center()
-            };
-            QPointF const viewportEnd{
-                ((QPointF{next.x(), -next.y()} / MATH_UNITS_PER_GRAPH_UNITS)
-                 - rectGraph.center())
-                    / m_graphScale
-                + rectViewport.center()
-            };
+            draw(
+                painter,
+                functionEndpointPen,
+                functionPen,
+                rectGraph,
+                rectViewport,
+                m_graphScale,
+                chunk.beginX,
+                chunk.beginY,
+                calqmath::Scalar{gridIdxBegin} * chunk.middleXDelta,
+                chunk.middleY.front()
+            );
 
-            auto const newSlope = (next.y() - prev.y()) / (next.x() - prev.x());
-
-            /*
-             * Detect discontinuities. Not 100% foolproof, but good enough for
-             * now.
-             */
-            double constexpr SLOPE_ABSOLUTE_DELTA_MAX{0.1};
-            if (std::abs(newSlope - oldSlope) < SLOPE_ABSOLUTE_DELTA_MAX)
+            for (ptrdiff_t gridIdx = gridIdxBegin; gridIdx <= gridIdxEnd - 1;
+                 gridIdx++)
             {
-                painter.drawLine(viewportStart, viewportEnd);
+                auto const middleIdx{gridIdx - gridIdxBegin};
+
+                draw(
+                    painter,
+                    functionEndpointPen,
+                    functionPen,
+                    rectGraph,
+                    rectViewport,
+                    m_graphScale,
+                    calqmath::Scalar{gridIdx} * chunk.middleXDelta,
+                    chunk.middleY.at(middleIdx),
+                    calqmath::Scalar{gridIdx + 1} * chunk.middleXDelta,
+                    chunk.middleY.at(middleIdx + 1)
+                );
             }
+
+            draw(
+                painter,
+                functionEndpointPen,
+                functionPen,
+                rectGraph,
+                rectViewport,
+                m_graphScale,
+                calqmath::Scalar{gridIdxEnd} * chunk.middleXDelta,
+                chunk.middleY.back(),
+                chunk.endX,
+                chunk.endY
+            );
         }
     }
 }
