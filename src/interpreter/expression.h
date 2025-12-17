@@ -1,5 +1,6 @@
 #pragma once
 
+#include "function_database.h"
 #include "graph.h"
 #include "math/number.h"
 #include "types.h"

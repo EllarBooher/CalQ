@@ -50,6 +50,7 @@ public:
     explicit Scalar(
         double number = 0.0, size_t precision = DEFAULT_BASE_2_PRECISION
     );
+    explicit Scalar(size_t number, size_t precision = DEFAULT_BASE_2_PRECISION);
     explicit Scalar(
         ptrdiff_t number, size_t precision = DEFAULT_BASE_2_PRECISION
     );

@@ -45,6 +45,14 @@ Scalar::Scalar(double const number, size_t const precision)
     mpfr_set_d(p_impl.get(), number, mpfr_get_default_rounding_mode());
 }
 
+Scalar::Scalar(size_t const number, size_t const precision)
+{
+    p_impl = std::make_unique<detail::ScalarImpl>();
+    mpfr_init2(p_impl.get(), detail::clampPrecisionForMPFR(precision));
+
+    mpfr_set_ui(p_impl.get(), number, mpfr_get_default_rounding_mode());
+}
+
 Scalar::Scalar(ptrdiff_t const number, size_t const precision)
 {
     p_impl = std::make_unique<detail::ScalarImpl>();
@@ -102,7 +110,7 @@ auto Scalar::toMantissaExponent() const -> std::tuple<std::string, ptrdiff_t>
 {
     std::tuple<std::string, ptrdiff_t> result{};
 
-    size_t constexpr PRECISION_DIGITS = 10;
+    size_t constexpr PRECISION_DIGITS = 0;
     mpfr_exp_t exponent;
 
     auto* const pMantissa = mpfr_get_str(

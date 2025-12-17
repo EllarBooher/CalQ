@@ -1,13 +1,22 @@
 #pragma once
 
-#include "types.h"
+#include "graph.h"
+#include <functional>
 #include <map>
+#include <memory>
 #include <optional>
 #include <ranges>
 #include <string>
 
 namespace calqmath
 {
+struct UnaryFunction
+{
+    std::string name;
+    std::function<Scalar(Scalar const&)> function;
+    std::function<GraphCurve(GraphCurve const&)> graph;
+};
+
 /**
  * @brief The FunctionDatabase class stores loaded functions for easy lookup by
  * the interpreter.

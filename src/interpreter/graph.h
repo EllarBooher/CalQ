@@ -3,6 +3,7 @@
 #include "math/number.h"
 #include "types.h"
 #include <string>
+#include <vector>
 
 namespace calqmath
 {
@@ -17,6 +18,7 @@ struct GraphChunkDebug
     std::string middleXDelta;
 
     size_t middleYCount;
+    ptrdiff_t expectedMiddleYCount;
 
     std::string endY;
 };
@@ -35,23 +37,26 @@ struct GraphChunkDebug
 struct GraphChunk
 {
     Scalar beginX;
-    Scalar endX;
-
     Scalar beginY;
 
     // This should NEVER change
-    Scalar middleXDelta;
+    Scalar gridXDelta;
 
-    std::vector<Scalar> middleY;
+    ptrdiff_t gridIdxBegin;
+    ptrdiff_t gridIdxEnd;
+    std::vector<Scalar> gridY;
 
+    Scalar endX;
     Scalar endY;
 
     static auto isValid(GraphChunk const&) -> bool;
+    static auto isPointLike(GraphChunk const&) -> bool;
     static auto isCompatible(GraphChunk const&, GraphChunk const&) -> bool;
+    static auto expectedMiddleYCount(GraphChunk const&) -> size_t;
 
 #ifdef CALQ_DEBUG
     /* Optional spot to store debug representation of Chunk. */
-    GraphChunkDebug debug;
+    GraphChunkDebug debug{};
 
     static void setDebug(calqmath::GraphChunk& chunk);
 #endif

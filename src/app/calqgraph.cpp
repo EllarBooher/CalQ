@@ -59,19 +59,36 @@ void draw(
     calqmath::Scalar const& nextY
 )
 {
+    QPointF const currentGraph{
+        std::clamp(
+            currentX.toDouble() / MATH_UNITS_PER_GRAPH_UNITS,
+            rectGraph.left(),
+            rectGraph.right()
+        ),
+        std::clamp(
+            -currentY.toDouble() / MATH_UNITS_PER_GRAPH_UNITS,
+            rectGraph.top(),
+            rectGraph.bottom()
+        )
+    };
+    QPointF const nextGraph{
+        std::clamp(
+            nextX.toDouble() / MATH_UNITS_PER_GRAPH_UNITS,
+            rectGraph.left(),
+            rectGraph.right()
+        ),
+        std::clamp(
+            -nextY.toDouble() / MATH_UNITS_PER_GRAPH_UNITS,
+            rectGraph.top(),
+            rectGraph.bottom()
+        )
+    };
+
     QPointF const viewportStart{
-        ((QPointF{currentX.toDouble(), -currentY.toDouble()}
-          / MATH_UNITS_PER_GRAPH_UNITS)
-         - rectGraph.center())
-            / graphScale
-        + rectViewport.center()
+        (currentGraph - rectGraph.center()) / graphScale + rectViewport.center()
     };
     QPointF const viewportEnd{
-        ((QPointF{nextX.toDouble(), -nextY.toDouble()}
-          / MATH_UNITS_PER_GRAPH_UNITS)
-         - rectGraph.center())
-            / graphScale
-        + rectViewport.center()
+        (nextGraph - rectGraph.center()) / graphScale + rectViewport.center()
     };
 
     painter.setPen(functionEndpointPen);
@@ -103,6 +120,11 @@ void calqapp::CalQGraph::paintGL()
             + m_graphTranslation,
         rectViewport.size() * m_graphScale
     };
+
+    if (rectViewport.width() < 1.0)
+    {
+        return;
+    }
 
     QPen const functionPen{Qt::red, 2, Qt::SolidLine};
     QPen const functionEndpointPen{Qt::red, 4, Qt::SolidLine};
@@ -300,34 +322,54 @@ void calqapp::CalQGraph::paintGL()
 
         for (auto const& chunk : curve.chunks)
         {
-            ptrdiff_t const gridIdxBegin{
-                calqmath::Functions::floor(chunk.beginX / chunk.middleXDelta)
-                    .toSignedInt()
-                + 1
-            };
-            ptrdiff_t const gridIdxEnd{
-                calqmath::Functions::ceil(chunk.endX / chunk.middleXDelta)
-                    .toSignedInt()
-                - 1
-            };
-
-            draw(
-                painter,
-                functionEndpointPen,
-                functionPen,
-                rectGraph,
-                rectViewport,
-                m_graphScale,
-                chunk.beginX,
-                chunk.beginY,
-                calqmath::Scalar{gridIdxBegin} * chunk.middleXDelta,
-                chunk.middleY.front()
-            );
-
-            for (ptrdiff_t gridIdx = gridIdxBegin; gridIdx <= gridIdxEnd - 1;
-                 gridIdx++)
+            if (chunk.gridY.empty())
             {
-                auto const middleIdx{gridIdx - gridIdxBegin};
+                draw(
+                    painter,
+                    functionEndpointPen,
+                    functionPen,
+                    rectGraph,
+                    rectViewport,
+                    m_graphScale,
+                    chunk.beginX,
+                    chunk.beginY,
+                    chunk.endX,
+                    chunk.endY
+                );
+            }
+            else
+            {
+                draw(
+                    painter,
+                    functionEndpointPen,
+                    functionPen,
+                    rectGraph,
+                    rectViewport,
+                    m_graphScale,
+                    chunk.beginX,
+                    chunk.beginY,
+                    calqmath::Scalar{chunk.gridIdxBegin} * chunk.gridXDelta,
+                    chunk.gridY.front()
+                );
+
+                for (auto const gridIdx :
+                     std::views::iota(chunk.gridIdxBegin, chunk.gridIdxEnd - 1))
+                {
+                    auto const middleIdx{gridIdx - chunk.gridIdxBegin};
+
+                    draw(
+                        painter,
+                        functionEndpointPen,
+                        functionPen,
+                        rectGraph,
+                        rectViewport,
+                        m_graphScale,
+                        calqmath::Scalar{gridIdx} * chunk.gridXDelta,
+                        chunk.gridY.at(middleIdx),
+                        calqmath::Scalar{gridIdx + 1} * chunk.gridXDelta,
+                        chunk.gridY.at(middleIdx + 1)
+                    );
+                }
 
                 draw(
                     painter,
@@ -336,25 +378,12 @@ void calqapp::CalQGraph::paintGL()
                     rectGraph,
                     rectViewport,
                     m_graphScale,
-                    calqmath::Scalar{gridIdx} * chunk.middleXDelta,
-                    chunk.middleY.at(middleIdx),
-                    calqmath::Scalar{gridIdx + 1} * chunk.middleXDelta,
-                    chunk.middleY.at(middleIdx + 1)
+                    calqmath::Scalar{chunk.gridIdxEnd - 1} * chunk.gridXDelta,
+                    chunk.gridY.back(),
+                    chunk.endX,
+                    chunk.endY
                 );
             }
-
-            draw(
-                painter,
-                functionEndpointPen,
-                functionPen,
-                rectGraph,
-                rectViewport,
-                m_graphScale,
-                calqmath::Scalar{gridIdxEnd} * chunk.middleXDelta,
-                chunk.middleY.back(),
-                chunk.endX,
-                chunk.endY
-            );
         }
     }
 }

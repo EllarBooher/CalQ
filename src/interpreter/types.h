@@ -1,7 +1,6 @@
 #pragma once
 
-#include "math/number.h"
-#include <functional>
+#include <cstdint>
 
 namespace calqmath
 {
@@ -11,11 +10,5 @@ enum class BinaryOp : uint8_t
     Minus,
     Multiply,
     Divide
-};
-
-struct UnaryFunction
-{
-    std::string name;
-    std::function<Scalar(Scalar)> function;
 };
 } // namespace calqmath

@@ -3,37 +3,68 @@
 #include "math/functions.h"
 #include <cassert>
 #include <optional>
+#include <ranges>
 #include <utility>
 
 auto calqmath::GraphChunk::isValid(GraphChunk const& chunk) -> bool
 {
-    if (chunk.endX < chunk.beginX)
+    assert(chunk.endX >= chunk.beginX);
+
+    assert(chunk.gridXDelta > Scalar::zero());
+
+    assert(chunk.gridIdxEnd >= chunk.gridIdxBegin);
+
+    if (chunk.gridIdxEnd > chunk.gridIdxBegin)
     {
-        return false;
+        assert(chunk.beginX <= Scalar{chunk.gridIdxBegin} * chunk.gridXDelta);
+        assert(chunk.endX >= Scalar{chunk.gridIdxEnd - 1} * chunk.gridXDelta);
+
+        [[maybe_unused]]
+        auto const expectedMiddleYCount{chunk.gridIdxEnd - chunk.gridIdxBegin};
+
+        // Arbitrary limit to avoid blowing up memory or compute time
+        [[maybe_unused]]
+        constexpr double SIZE_LIMIT{10000};
+
+        assert(expectedMiddleYCount < SIZE_LIMIT);
+        assert(expectedMiddleYCount >= 0);
+        assert(chunk.gridY.size() == static_cast<size_t>(expectedMiddleYCount));
+    }
+    else
+    {
+        assert(chunk.gridIdxBegin == 0);
+        assert(chunk.gridIdxEnd == 0);
+
+        assert(chunk.gridY.empty());
     }
 
-    auto const expectedMiddleYCount{
-        (Functions::floor(chunk.endX / chunk.middleXDelta)
-         - Functions::floor(chunk.beginX / chunk.middleXDelta))
-            .toUnsignedInt()
-    };
+    return true;
+}
 
-    [[maybe_unused]]
-    constexpr double SANE_SIZE_LIMIT{10000};
-
-    assert(
-        expectedMiddleYCount < SANE_SIZE_LIMIT
-        && "GraphChunk size limit reached"
-    );
-
-    return chunk.middleY.size() == expectedMiddleYCount;
+auto calqmath::GraphChunk::isPointLike(GraphChunk const& chunk) -> bool
+{
+    auto const width = chunk.endX - chunk.beginX;
+    return width < Scalar{"0.1"} * chunk.gridXDelta;
 }
 
 auto calqmath::GraphChunk::isCompatible(
     GraphChunk const& first, GraphChunk const& second
 ) -> bool
 {
-    return first.middleXDelta == second.middleXDelta;
+    return first.gridXDelta == second.gridXDelta;
+}
+
+auto calqmath::GraphChunk::expectedMiddleYCount(GraphChunk const& chunk)
+    -> size_t
+{
+    auto const begin{
+        Functions::floor(chunk.beginX / chunk.gridXDelta).toSignedInt() + 1
+    };
+    auto const end{
+        Functions::ceil(chunk.endX / chunk.gridXDelta).toSignedInt()
+    };
+
+    return end - begin;
 }
 
 namespace
@@ -92,25 +123,12 @@ auto sampleInterpolated(GraphChunk const& chunk, Scalar const& sampleX)
         return std::nullopt;
     }
 
-    auto const isPointlike{chunk.beginX == chunk.endX};
-    if (isPointlike)
+    if (GraphChunk::isPointLike(chunk))
     {
-        assert(chunk.endY == chunk.beginY);
-        return chunk.beginY;
+        return Scalar{"0.5"} * (chunk.beginY + chunk.endY);
     }
 
-    ptrdiff_t const gridIdxBegin{
-        Functions::floor(chunk.beginX / chunk.middleXDelta).toSignedInt() + 1
-    };
-    ptrdiff_t const gridIdxEnd{
-        Functions::ceil(chunk.endX / chunk.middleXDelta).toSignedInt()
-    };
-
-    assert(gridIdxEnd - gridIdxBegin >= 0);
-    auto const gridCount{static_cast<size_t>(gridIdxEnd - gridIdxBegin)};
-
-    auto const hasMiddle{gridCount > 0};
-    if (!hasMiddle)
+    if (chunk.gridY.empty())
     {
         return sampleLineUnchecked(
             {.beginX = chunk.beginX,
@@ -121,42 +139,37 @@ auto sampleInterpolated(GraphChunk const& chunk, Scalar const& sampleX)
         );
     }
 
-    ptrdiff_t const gridIdx{
-        Functions::floor(sampleX / chunk.middleXDelta).toSignedInt()
+    auto const gridIdx{
+        Functions::floor(sampleX / chunk.gridXDelta).toSignedInt()
     };
 
-    assert(chunk.middleY.size() == gridCount);
-
-    if (gridIdx < gridIdxBegin)
+    if (gridIdx < chunk.gridIdxBegin)
     {
         return sampleLineUnchecked(
             {.beginX = chunk.beginX,
-             .endX = Scalar{gridIdxBegin} * chunk.middleXDelta,
+             .endX = Scalar{chunk.gridIdxBegin} * chunk.gridXDelta,
              .beginY = chunk.beginY,
-             .endY = chunk.middleY.front(),
+             .endY = chunk.gridY.front(),
              .sampleX = sampleX}
         );
     }
 
-    if (gridIdx >= gridIdxEnd - 1)
+    if (gridIdx >= chunk.gridIdxEnd - 1)
     {
         return sampleLineUnchecked(
-            {.beginX = Scalar{gridIdxEnd - 1} * chunk.middleXDelta,
+            {.beginX = Scalar{chunk.gridIdxEnd - 1} * chunk.gridXDelta,
              .endX = chunk.endX,
-             .beginY = chunk.middleY.back(),
+             .beginY = chunk.gridY.back(),
              .endY = chunk.endY,
              .sampleX = sampleX}
         );
     }
-
-    assert(gridIdx >= gridIdxBegin);
-    auto const middleIdx{static_cast<size_t>(gridIdx - gridIdxBegin)};
 
     return sampleLineUnchecked(
-        {.beginX = Scalar{gridIdx} * chunk.middleXDelta,
-         .endX = Scalar{gridIdx + 1} * chunk.middleXDelta,
-         .beginY = chunk.middleY.at(middleIdx),
-         .endY = chunk.middleY.at(middleIdx + 1),
+        {.beginX = Scalar{gridIdx} * chunk.gridXDelta,
+         .endX = Scalar{gridIdx + 1} * chunk.gridXDelta,
+         .beginY = chunk.gridY.at(gridIdx - chunk.gridIdxBegin),
+         .endY = chunk.gridY.at(gridIdx - chunk.gridIdxBegin + 1),
          .sampleX = sampleX}
     );
 }
@@ -169,24 +182,24 @@ auto mergeChunks(
     assert(GraphChunk::isValid(right));
     assert(GraphChunk::isCompatible(left, right));
 
-    auto const minX{Scalar::max(left.beginX, right.beginX)};
-    auto const maxX{Scalar::min(left.endX, right.endX)};
+    auto const beginX{Scalar::max(left.beginX, right.beginX)};
+    auto const endX{Scalar::min(left.endX, right.endX)};
 
-    auto const comparison{minX <=> maxX};
+    auto const comparison{beginX <=> endX};
     if (comparison > 0)
     {
         // No intersection
         return std::nullopt;
     }
 
-    assert(comparison < 0 && "Unimplemented case");
+    assert(comparison != 0 && "Unimplemented case");
 
     std::optional<GraphChunk> result{std::in_place};
     GraphChunk& chunk{result.value()};
-    chunk.middleXDelta = left.middleXDelta;
+    chunk.gridXDelta = left.gridXDelta;
 
-    chunk.beginX = minX;
-    chunk.endX = maxX;
+    chunk.beginX = beginX;
+    chunk.endX = endX;
 
     // TODO: handle NaN/Inf
     chunk.beginY = ::doMath(
@@ -200,47 +213,34 @@ auto mergeChunks(
         binaryOp
     );
 
-    // The global grid index of the left-most "middle" point of each chunk
-    ptrdiff_t const gridOffsetLeft{
-        Functions::floor(left.beginX / left.middleXDelta).toSignedInt() + 1
-    };
-    ptrdiff_t const gridOffsetRight(
-        Functions::floor(right.beginX / right.middleXDelta).toSignedInt() + 1
-    );
+    chunk.gridIdxBegin = std::max(left.gridIdxBegin, right.gridIdxBegin);
+    chunk.gridIdxEnd = std::min(left.gridIdxEnd, right.gridIdxEnd);
 
-    /*
-     * Doing floor / ceil and shifting by 1 is better than ceil / floor.
-     * This is because it captures the case that beginX and endX are on the
-     * grid.
-     * When beginX and endX are on the grid already, we want to skip them in the
-     * middle.
-     */
-    ptrdiff_t const gridIdxBegin{
-        Functions::floor(chunk.beginX / chunk.middleXDelta).toSignedInt() + 1
-    };
-    ptrdiff_t const gridIdxEnd{
-        Functions::ceil(chunk.endX / chunk.middleXDelta).toSignedInt() - 1
-    };
-
-    assert(gridIdxEnd > gridIdxBegin);
-    assert(gridIdxBegin >= gridOffsetLeft);
-    assert(gridIdxBegin >= gridOffsetRight);
-
-    chunk.middleY.reserve((gridIdxEnd - gridIdxBegin) + 1);
-
-    for (ptrdiff_t gridIdx = gridIdxBegin; gridIdx <= gridIdxEnd; gridIdx += 1)
+    if (chunk.gridIdxBegin < chunk.gridIdxEnd)
     {
-        auto const& leftY{left.middleY[gridIdx - gridOffsetLeft]};
-        auto const& rightY{right.middleY[gridIdx - gridOffsetRight]};
+        chunk.gridY.reserve(chunk.gridIdxEnd - chunk.gridIdxBegin);
 
-        chunk.middleY.emplace_back(::doMath(leftY, rightY, binaryOp));
+        for (auto const gridIdx :
+             std::views::iota(chunk.gridIdxBegin, chunk.gridIdxEnd))
+        {
+            auto const& leftY{left.gridY.at(gridIdx - left.gridIdxBegin)};
+            auto const& rightY{right.gridY.at(gridIdx - right.gridIdxBegin)};
+
+            chunk.gridY.emplace_back(::doMath(leftY, rightY, binaryOp));
+        }
     }
-
-    assert(GraphChunk::isValid(chunk));
+    else
+    {
+        chunk.gridIdxBegin = 0;
+        chunk.gridIdxEnd = 0;
+        chunk.gridY = {};
+    }
 
 #ifdef CALQ_DEBUG
     GraphChunk::setDebug(chunk);
 #endif
+
+    assert(GraphChunk::isValid(chunk));
 
     return chunk;
 }
@@ -279,8 +279,9 @@ void calqmath::GraphChunk::setDebug(GraphChunk& chunk)
         .beginX = chunk.beginX.toString(),
         .endX = chunk.endX.toString(),
         .beginY = chunk.beginY.toString(),
-        .middleXDelta = chunk.middleXDelta.toString(),
-        .middleYCount = chunk.middleY.size(),
+        .middleXDelta = chunk.gridXDelta.toString(),
+        .middleYCount = chunk.gridY.size(),
+        .expectedMiddleYCount = chunk.gridIdxEnd - chunk.gridIdxBegin,
         .endY = chunk.endY.toString(),
     };
 }
@@ -290,44 +291,35 @@ auto calqmath::GraphCurve::generateUnitLine(
     const Scalar& min, const Scalar& max, const Scalar& middleXDelta
 ) -> calqmath::GraphCurve
 {
+    ptrdiff_t const gridIdxBegin{
+        calqmath::Functions::ceil(min / middleXDelta).toSignedInt()
+    };
+    ptrdiff_t const gridIdxEnd{
+        calqmath::Functions::floor(max / middleXDelta).toSignedInt() + 1
+    };
+
     GraphCurve curve{.chunks{GraphChunk{
-        .beginX{min},
-        .endX{max},
-        .beginY{min},
-        .middleXDelta{middleXDelta},
-        .middleY{},
-        .endY{max},
-#ifdef CALQ_DEBUG
-        .debug{}
-#endif
+        .beginX = min,
+        .beginY = min,
+        .gridXDelta = middleXDelta,
+        .gridIdxBegin = gridIdxBegin,
+        .gridIdxEnd = gridIdxEnd,
+        .gridY = {},
+        .endX = max,
+        .endY = max,
     }}};
 
-    for (auto& chunk : curve.chunks)
+    auto& chunk{curve.chunks[0]};
+    for (auto gridIdx : std::views::iota(chunk.gridIdxBegin, chunk.gridIdxEnd))
     {
-        ptrdiff_t const gridIdxBegin{
-            calqmath::Functions::floor(chunk.beginX / chunk.middleXDelta)
-                .toSignedInt()
-            + 1
-        };
-        ptrdiff_t const gridIdxEnd{
-            calqmath::Functions::ceil(chunk.endX / chunk.middleXDelta)
-                .toSignedInt()
-            - 1
-        };
-
-        for (ptrdiff_t gridIdx = gridIdxBegin; gridIdx <= gridIdxEnd; gridIdx++)
-        {
-            chunk.middleY.push_back(
-                calqmath::Scalar{gridIdx} * chunk.middleXDelta
-            );
-        }
+        chunk.gridY.push_back(Scalar{gridIdx} * chunk.gridXDelta);
+    }
 
 #ifdef CALQ_DEBUG
-        GraphChunk::setDebug(chunk);
+    GraphChunk::setDebug(chunk);
 #endif
 
-        assert(GraphChunk::isValid(chunk));
-    }
+    assert(GraphChunk::isValid(chunk));
 
     return curve;
 }

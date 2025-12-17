@@ -247,17 +247,20 @@ auto getCurveOfTerm(Term const& term, GraphCurve const& input) -> GraphCurve
 
         for (auto const& inputChunk : input.chunks)
         {
-            GraphChunk outputChunk;
+            GraphChunk outputChunk{
+                .beginX = inputChunk.beginX,
+                .beginY = scalar,
 
-            outputChunk.beginX = inputChunk.beginX;
-            outputChunk.endX = inputChunk.endX;
+                .gridXDelta = inputChunk.gridXDelta,
 
-            outputChunk.beginY = scalar;
-            outputChunk.middleXDelta = inputChunk.middleXDelta;
+                .gridIdxBegin = inputChunk.gridIdxBegin,
+                .gridIdxEnd = inputChunk.gridIdxEnd,
+                .gridY = {},
 
-            outputChunk.middleY.resize(inputChunk.middleY.size(), scalar);
-
-            outputChunk.endY = scalar;
+                .endX = inputChunk.endX,
+                .endY = scalar,
+            };
+            outputChunk.gridY.resize(inputChunk.gridY.size(), scalar);
 
             output.chunks.emplace_back(std::move(outputChunk));
         }
@@ -270,34 +273,27 @@ auto getCurveOfTerm(Term const& term, GraphCurve const& input) -> GraphCurve
 
         for (auto const& inputChunk : input.chunks)
         {
-            GraphChunk outputChunk;
+            GraphChunk outputChunk{
+                .beginX = inputChunk.beginX,
+                .beginY = inputChunk.beginX,
 
-            outputChunk.beginX = inputChunk.beginX;
-            outputChunk.endX = inputChunk.endX;
+                .gridXDelta = inputChunk.gridXDelta,
 
-            outputChunk.beginY = inputChunk.beginX;
-            outputChunk.endY = inputChunk.endX;
+                .gridIdxBegin = inputChunk.gridIdxBegin,
+                .gridIdxEnd = inputChunk.gridIdxEnd,
+                .gridY = {},
 
-            outputChunk.middleXDelta = inputChunk.middleXDelta;
-
-            outputChunk.middleY.reserve(inputChunk.middleY.size());
-
-            ptrdiff_t const gridIdxBegin{
-                Functions::floor(outputChunk.beginX / outputChunk.middleXDelta)
-                    .toSignedInt()
-                + 1
-            };
-            ptrdiff_t const gridIdxEnd{
-                Functions::ceil(outputChunk.endX / outputChunk.middleXDelta)
-                    .toSignedInt()
-                - 1
+                .endX = inputChunk.endX,
+                .endY = inputChunk.endX,
             };
 
-            for (ptrdiff_t gridIdx = gridIdxBegin; gridIdx <= gridIdxEnd;
-                 gridIdx += 1)
+            outputChunk.gridY.reserve(inputChunk.gridY.size());
+            for (auto const gridIdx : std::views::iota(
+                     outputChunk.gridIdxBegin, outputChunk.gridIdxEnd
+                 ))
             {
-                outputChunk.middleY.emplace_back(
-                    Scalar{gridIdx} * outputChunk.middleXDelta
+                outputChunk.gridY.emplace_back(
+                    Scalar{gridIdx} * outputChunk.gridXDelta
                 );
             }
 
@@ -374,16 +370,7 @@ auto Expression::graph(GraphCurve const& input) const -> GraphCurve
 
     if (m_function != nullptr)
     {
-        for (auto& chunk : output.chunks)
-        {
-            chunk.beginY = m_function->function(chunk.beginY);
-            chunk.endY = m_function->function(chunk.endY);
-
-            for (auto& middleY : chunk.middleY)
-            {
-                middleY = m_function->function(middleY);
-            }
-        }
+        output = m_function->graph(output);
     }
 
     return output;
