@@ -55,14 +55,17 @@ auto floor(GraphCurve const& curve) -> GraphCurve
                 Scalar const slopeInverse =
                     (xSecond - xFirst) / (ySecond - yFirst);
 
-                auto const splitX =
-                    slopeInverse * (ySecondMapped - yFirst) + xFirst;
-
                 [[maybe_unused]]
                 bool const willCreateIntragridChunks =
                     Functions::round(ySecondMapped - yFirstMapped)
                     > Scalar{"1"};
                 assert(!willCreateIntragridChunks); // TODO
+
+                auto splitX = slopeInverse * (ySecondMapped - yFirst) + xFirst;
+                if (splitX > Scalar{gridIdx} * outputChunk.gridXDelta)
+                {
+                    splitX = Scalar{gridIdx} * outputChunk.gridXDelta;
+                }
 
                 outputChunk.gridIdxEnd = gridIdx;
 
@@ -119,13 +122,16 @@ auto floor(GraphCurve const& curve) -> GraphCurve
             // fragments into
             Scalar const slopeInverse = (xSecond - xFirst) / (ySecond - yFirst);
 
-            auto const splitX =
-                slopeInverse * (ySecondMapped - yFirst) + xFirst;
-
             [[maybe_unused]]
             bool const willCreateIntragridChunks =
                 Functions::round(ySecondMapped - yFirstMapped) > Scalar{"1"};
             assert(!willCreateIntragridChunks); // TODO
+
+            auto splitX = slopeInverse * (ySecondMapped - yFirst) + xFirst;
+            if (splitX > Scalar{inputChunk.gridIdxEnd} * outputChunk.gridXDelta)
+            {
+                splitX = Scalar{inputChunk.gridIdxEnd} * outputChunk.gridXDelta;
+            }
 
             outputChunk.gridIdxEnd = inputChunk.gridIdxEnd;
             outputChunk.endX = splitX;

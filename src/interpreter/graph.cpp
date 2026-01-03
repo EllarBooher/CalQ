@@ -192,7 +192,7 @@ auto mergeChunks(
         return std::nullopt;
     }
 
-    assert(comparison != 0 && "Unimplemented case");
+    assert(comparison != 0 && "Unimplemented case"); // TODO
 
     std::optional<GraphChunk> result{std::in_place};
     GraphChunk& chunk{result.value()};
