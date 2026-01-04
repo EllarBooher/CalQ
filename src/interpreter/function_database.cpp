@@ -26,6 +26,7 @@ auto floor(GraphCurve const& curve) -> GraphCurve
 
         GraphChunk outputChunk;
         outputChunk.beginX = xFirst;
+        outputChunk.beginIsOpen = inputChunk.beginIsOpen;
         outputChunk.beginY = Functions::floor(yFirst);
         outputChunk.gridXDelta = inputChunk.gridXDelta;
         outputChunk.gridIdxBegin = inputChunk.gridIdxBegin;
@@ -72,9 +73,10 @@ auto floor(GraphCurve const& curve) -> GraphCurve
                 outputChunk.endX = splitX;
                 outputChunk.endY = yFirstMapped;
 
-#ifdef CALQ_DEBUG
-                GraphChunk::setDebug(outputChunk);
-#endif
+                // Floor function sends the closed point down
+                auto const isOpenOnLeft = false;
+
+                outputChunk.endIsOpen = isOpenOnLeft;
 
                 assert(
                     outputChunk.endX >= Scalar{outputChunk.gridIdxEnd - 1}
@@ -95,7 +97,9 @@ auto floor(GraphCurve const& curve) -> GraphCurve
                 output.chunks.emplace_back(std::move(outputChunk));
 
                 outputChunk.beginX = splitX;
+                outputChunk.beginIsOpen = !isOpenOnLeft;
                 outputChunk.beginY = ySecondMapped;
+
                 outputChunk.gridXDelta = inputChunk.gridXDelta;
                 outputChunk.gridIdxBegin = gridIdx;
                 outputChunk.gridY = {ySecondMapped};
@@ -137,6 +141,11 @@ auto floor(GraphCurve const& curve) -> GraphCurve
             outputChunk.endX = splitX;
             outputChunk.endY = yFirstMapped;
 
+            // Floor function sends the closed point down
+            auto const isOpenOnLeft = false;
+
+            outputChunk.endIsOpen = isOpenOnLeft;
+
             assert(
                 outputChunk.endX
                 >= Scalar{outputChunk.gridIdxEnd - 1} * outputChunk.gridXDelta
@@ -156,6 +165,7 @@ auto floor(GraphCurve const& curve) -> GraphCurve
             output.chunks.emplace_back(std::move(outputChunk));
 
             outputChunk.beginX = splitX;
+            outputChunk.beginIsOpen = !isOpenOnLeft;
             outputChunk.beginY = ySecondMapped;
             outputChunk.gridXDelta = inputChunk.gridXDelta;
 
@@ -165,7 +175,15 @@ auto floor(GraphCurve const& curve) -> GraphCurve
         }
 
         outputChunk.endX = xSecond;
+        outputChunk.endIsOpen = inputChunk.endIsOpen;
         outputChunk.endY = ySecondMapped;
+
+        if (outputChunk.gridIdxEnd <= outputChunk.gridIdxBegin)
+        {
+            outputChunk.gridY = {};
+            outputChunk.gridIdxBegin = 0;
+            outputChunk.gridIdxEnd = 0;
+        }
 
 #ifdef CALQ_DEBUG
         GraphChunk::setDebug(outputChunk);
@@ -192,12 +210,14 @@ auto sin(GraphCurve const& curve) -> GraphCurve
 
         GraphChunk outputChunk{
             .beginX = chunk.beginX,
+            .beginIsOpen = chunk.beginIsOpen,
             .beginY = Functions::sin(chunk.beginY),
             .gridXDelta = chunk.gridXDelta,
             .gridIdxBegin = chunk.gridIdxBegin,
             .gridIdxEnd = chunk.gridIdxEnd,
             .gridY = {transformed.begin(), transformed.end()},
             .endX = chunk.endX,
+            .endIsOpen = chunk.endIsOpen,
             .endY = Functions::sin(chunk.endY),
         };
 

@@ -249,6 +249,7 @@ auto getCurveOfTerm(Term const& term, GraphCurve const& input) -> GraphCurve
         {
             GraphChunk outputChunk{
                 .beginX = inputChunk.beginX,
+                .beginIsOpen = inputChunk.beginIsOpen,
                 .beginY = scalar,
 
                 .gridXDelta = inputChunk.gridXDelta,
@@ -258,6 +259,7 @@ auto getCurveOfTerm(Term const& term, GraphCurve const& input) -> GraphCurve
                 .gridY = {},
 
                 .endX = inputChunk.endX,
+                .endIsOpen = inputChunk.endIsOpen,
                 .endY = scalar,
             };
             outputChunk.gridY.resize(inputChunk.gridY.size(), scalar);
@@ -275,6 +277,7 @@ auto getCurveOfTerm(Term const& term, GraphCurve const& input) -> GraphCurve
         {
             GraphChunk outputChunk{
                 .beginX = inputChunk.beginX,
+                .beginIsOpen = inputChunk.beginIsOpen,
                 .beginY = inputChunk.beginX,
 
                 .gridXDelta = inputChunk.gridXDelta,
@@ -284,6 +287,7 @@ auto getCurveOfTerm(Term const& term, GraphCurve const& input) -> GraphCurve
                 .gridY = {},
 
                 .endX = inputChunk.endX,
+                .endIsOpen = inputChunk.endIsOpen,
                 .endY = inputChunk.endX,
             };
 

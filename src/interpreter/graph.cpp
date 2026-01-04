@@ -183,23 +183,31 @@ auto mergeChunks(
     assert(GraphChunk::isCompatible(left, right));
 
     auto const beginX{Scalar::max(left.beginX, right.beginX)};
+    auto const beginIsOpen = (beginX > left.beginX && left.beginIsOpen)
+                          || (beginX > right.beginX && right.beginIsOpen)
+                          || (left.beginIsOpen && right.beginIsOpen);
+
     auto const endX{Scalar::min(left.endX, right.endX)};
+    auto const endIsOpen = (endX < left.endX && left.endIsOpen)
+                        || (endX < right.endX && right.endIsOpen)
+                        || (left.endIsOpen && right.endIsOpen);
 
     auto const comparison{beginX <=> endX};
-    if (comparison > 0)
+    if (comparison > 0 || (comparison == 0 && (beginIsOpen || endIsOpen)))
     {
         // No intersection
         return std::nullopt;
     }
-
-    assert(comparison != 0 && "Unimplemented case"); // TODO
 
     std::optional<GraphChunk> result{std::in_place};
     GraphChunk& chunk{result.value()};
     chunk.gridXDelta = left.gridXDelta;
 
     chunk.beginX = beginX;
+    chunk.beginIsOpen = beginIsOpen;
+
     chunk.endX = endX;
+    chunk.endIsOpen = endIsOpen;
 
     // TODO: handle NaN/Inf
     chunk.beginY = ::doMath(
@@ -216,7 +224,7 @@ auto mergeChunks(
     chunk.gridIdxBegin = std::max(left.gridIdxBegin, right.gridIdxBegin);
     chunk.gridIdxEnd = std::min(left.gridIdxEnd, right.gridIdxEnd);
 
-    if (chunk.gridIdxBegin < chunk.gridIdxEnd)
+    if (comparison < 0 && chunk.gridIdxBegin < chunk.gridIdxEnd)
     {
         chunk.gridY.reserve(chunk.gridIdxEnd - chunk.gridIdxBegin);
 

@@ -74,6 +74,8 @@ public:
     [[nodiscard]] auto toMantissaExponent() const
         -> std::tuple<std::string, ptrdiff_t>;
 
+    auto precision() const -> size_t;
+
     static auto zero() -> Scalar;
     static auto nan() -> Scalar;
     static auto positiveInf() -> Scalar;
@@ -128,5 +130,9 @@ private:
     explicit Scalar(no_set, size_t precision = DEFAULT_BASE_2_PRECISION);
 
     std::unique_ptr<detail::ScalarImpl> p_impl;
+
+#ifdef CALQ_DEBUG
+    std::string m_debug;
+#endif
 };
 } // namespace calqmath

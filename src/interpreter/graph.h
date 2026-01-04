@@ -37,6 +37,8 @@ struct GraphChunkDebug
 struct GraphChunk
 {
     Scalar beginX;
+    // If true, indicates that the begin-boundary is excluded from the interval.
+    bool beginIsOpen;
     Scalar beginY;
 
     // This should NEVER change
@@ -47,6 +49,8 @@ struct GraphChunk
     std::vector<Scalar> gridY;
 
     Scalar endX;
+    // If true, indicates that the end-boundary is excluded from the interval.
+    bool endIsOpen;
     Scalar endY;
 
     static auto isValid(GraphChunk const&) -> bool;

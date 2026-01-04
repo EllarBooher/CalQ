@@ -2,6 +2,7 @@
 
 #include "mpfr.h"
 #include "numberimpl.h"
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -79,6 +80,9 @@ Scalar::Scalar(
 auto Scalar::operator=(Scalar&& other) noexcept -> Scalar&
 {
     p_impl = std::exchange(other.p_impl, nullptr);
+
+    m_debug = this->toString();
+
     return *this;
 }
 auto Scalar::operator=(Scalar const& other) -> Scalar&
@@ -88,6 +92,8 @@ auto Scalar::operator=(Scalar const& other) -> Scalar&
     mpfr_set(
         p_impl.get(), other.p_impl.get(), mpfr_get_default_rounding_mode()
     );
+
+    m_debug = this->toString();
 
     return *this;
 }
@@ -132,6 +138,8 @@ auto Scalar::toMantissaExponent() const -> std::tuple<std::string, ptrdiff_t>
 
     return result;
 }
+
+auto Scalar::precision() const -> size_t { return mpfr_get_prec(p_impl.get()); }
 
 auto Scalar::zero() -> Scalar
 {

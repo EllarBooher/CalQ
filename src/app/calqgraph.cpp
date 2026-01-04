@@ -46,6 +46,17 @@ constexpr double MATH_UNITS_PER_GRAPH_UNITS =
 
 namespace
 {
+enum class EndpointStyle
+{
+    // Open/excluded end of an interval
+    Open,
+    // Closed/included end of an interval
+    Closed,
+    // Not an end of an interval, but instead a weld-point of two segments of
+    // the same continuous interval.
+    None,
+};
+
 void draw(
     QPainter& painter,
     QPen const& functionEndpointPen,
@@ -55,8 +66,10 @@ void draw(
     double graphScale,
     calqmath::Scalar const& currentX,
     calqmath::Scalar const& currentY,
+    EndpointStyle const currentStyle,
     calqmath::Scalar const& nextX,
-    calqmath::Scalar const& nextY
+    calqmath::Scalar const& nextY,
+    EndpointStyle const nextStyle
 )
 {
     QPointF const currentGraph{
@@ -92,8 +105,45 @@ void draw(
     };
 
     painter.setPen(functionEndpointPen);
-    painter.drawPoint(viewportStart);
-    painter.drawPoint(viewportEnd);
+    switch (currentStyle)
+    {
+    case EndpointStyle::Open:
+    {
+        painter.setBrush(Qt::BrushStyle::NoBrush);
+        painter.drawEllipse(viewportStart, 4, 4);
+        break;
+    }
+    case EndpointStyle::Closed:
+    {
+        painter.setBrush(Qt::red);
+        painter.drawEllipse(viewportStart, 4, 4);
+        break;
+    }
+    case EndpointStyle::None:
+    {
+        break;
+    }
+    }
+
+    switch (nextStyle)
+    {
+    case EndpointStyle::Open:
+    {
+        painter.setBrush(Qt::BrushStyle::NoBrush);
+        painter.drawEllipse(viewportEnd, 4, 4);
+        break;
+    }
+    case EndpointStyle::Closed:
+    {
+        painter.setBrush(Qt::red);
+        painter.drawEllipse(viewportEnd, 4, 4);
+        break;
+    }
+    case EndpointStyle::None:
+    {
+        break;
+    }
+    }
 
     painter.setPen(functionPen);
     painter.drawLine(viewportStart, viewportEnd);
@@ -127,7 +177,7 @@ void calqapp::CalQGraph::paintGL()
     }
 
     QPen const functionPen{Qt::red, 2, Qt::SolidLine};
-    QPen const functionEndpointPen{Qt::red, 4, Qt::SolidLine};
+    QPen const functionEndpointPen{Qt::red, 1, Qt::SolidLine};
     QPen const axisPen{QColor{25, 25, 25}, 2, Qt::SolidLine};
     QPen const majorPen{QColor{70, 70, 70}, 1, Qt::SolidLine};
 
@@ -333,8 +383,12 @@ void calqapp::CalQGraph::paintGL()
                     m_graphScale,
                     chunk.beginX,
                     chunk.beginY,
+                    chunk.beginIsOpen ? ::EndpointStyle::Open
+                                      : ::EndpointStyle::Closed,
                     chunk.endX,
-                    chunk.endY
+                    chunk.endY,
+                    chunk.endIsOpen ? ::EndpointStyle::Open
+                                    : ::EndpointStyle::Closed
                 );
             }
             else
@@ -348,8 +402,11 @@ void calqapp::CalQGraph::paintGL()
                     m_graphScale,
                     chunk.beginX,
                     chunk.beginY,
+                    chunk.beginIsOpen ? ::EndpointStyle::Open
+                                      : ::EndpointStyle::Closed,
                     calqmath::Scalar{chunk.gridIdxBegin} * chunk.gridXDelta,
-                    chunk.gridY.front()
+                    chunk.gridY.front(),
+                    ::EndpointStyle::None
                 );
 
                 for (auto const gridIdx :
@@ -366,8 +423,10 @@ void calqapp::CalQGraph::paintGL()
                         m_graphScale,
                         calqmath::Scalar{gridIdx} * chunk.gridXDelta,
                         chunk.gridY.at(middleIdx),
+                        ::EndpointStyle::None,
                         calqmath::Scalar{gridIdx + 1} * chunk.gridXDelta,
-                        chunk.gridY.at(middleIdx + 1)
+                        chunk.gridY.at(middleIdx + 1),
+                        ::EndpointStyle::None
                     );
                 }
 
@@ -380,8 +439,11 @@ void calqapp::CalQGraph::paintGL()
                     m_graphScale,
                     calqmath::Scalar{chunk.gridIdxEnd - 1} * chunk.gridXDelta,
                     chunk.gridY.back(),
+                    ::EndpointStyle::None,
                     chunk.endX,
-                    chunk.endY
+                    chunk.endY,
+                    chunk.endIsOpen ? ::EndpointStyle::Open
+                                    : ::EndpointStyle::Closed
                 );
             }
         }
