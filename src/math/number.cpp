@@ -44,6 +44,10 @@ Scalar::Scalar(double const number, size_t const precision)
     mpfr_init2(p_impl.get(), detail::clampPrecisionForMPFR(precision));
 
     mpfr_set_d(p_impl.get(), number, mpfr_get_default_rounding_mode());
+
+#ifdef CALQ_DEBUG
+    m_debug = this->toString();
+#endif
 }
 
 Scalar::Scalar(size_t const number, size_t const precision)
@@ -52,6 +56,10 @@ Scalar::Scalar(size_t const number, size_t const precision)
     mpfr_init2(p_impl.get(), detail::clampPrecisionForMPFR(precision));
 
     mpfr_set_ui(p_impl.get(), number, mpfr_get_default_rounding_mode());
+
+#ifdef CALQ_DEBUG
+    m_debug = this->toString();
+#endif
 }
 
 Scalar::Scalar(ptrdiff_t const number, size_t const precision)
@@ -60,6 +68,10 @@ Scalar::Scalar(ptrdiff_t const number, size_t const precision)
     mpfr_init2(p_impl.get(), detail::clampPrecisionForMPFR(precision));
 
     mpfr_set_si(p_impl.get(), number, mpfr_get_default_rounding_mode());
+
+#ifdef CALQ_DEBUG
+    m_debug = this->toString();
+#endif
 }
 
 Scalar::Scalar(
@@ -75,13 +87,19 @@ Scalar::Scalar(
         detail::clampBaseForMPFR(base),
         mpfr_get_default_rounding_mode()
     );
+
+#ifdef CALQ_DEBUG
+    m_debug = this->toString();
+#endif
 }
 
 auto Scalar::operator=(Scalar&& other) noexcept -> Scalar&
 {
     p_impl = std::exchange(other.p_impl, nullptr);
 
+#ifdef CALQ_DEBUG
     m_debug = this->toString();
+#endif
 
     return *this;
 }
@@ -93,7 +111,9 @@ auto Scalar::operator=(Scalar const& other) -> Scalar&
         p_impl.get(), other.p_impl.get(), mpfr_get_default_rounding_mode()
     );
 
+#ifdef CALQ_DEBUG
     m_debug = this->toString();
+#endif
 
     return *this;
 }
@@ -128,13 +148,12 @@ auto Scalar::toMantissaExponent() const -> std::tuple<std::string, ptrdiff_t>
         mpfr_get_default_rounding_mode()
     );
 
-    std::get<0>(result) = pMantissa;
+    std::get<0>(result) = std::string(pMantissa);
+    mpfr_free_str(pMantissa);
+
     std::get<1>(result) = ptrdiff_t{exponent};
 
     auto& str = std::get<0>(result);
-    str.erase(str.find_last_not_of('0') + 1);
-
-    mpfr_free_str(pMantissa);
 
     return result;
 }
@@ -184,6 +203,8 @@ auto decompose(calqmath::Scalar const& number) -> ScalarStringDecomposition
 {
     auto [mantissa, exponent] = number.toMantissaExponent();
 
+    assert(!mantissa.empty());
+
     /*
      * GMP scientific notation format:
      *      0.MANTISSA x BASE^exponent
@@ -196,19 +217,23 @@ auto decompose(calqmath::Scalar const& number) -> ScalarStringDecomposition
 
     ScalarStringDecomposition decomposition{};
 
-    if (mantissa.empty())
-    {
-        assert(exponent == 0);
-        decomposition.preDecimal = "0";
-        return decomposition;
-    }
-
-    // Should we check the number itself? e.g. number < 0
     if (mantissa.at(0) == '-')
     {
         decomposition.negative = true;
         mantissa.erase(0, 1);
     }
+
+    if (mantissa.find_first_not_of('0') == std::string::npos)
+    {
+        return {
+            .negative = decomposition.negative,
+            .preDecimal = "0",
+            .postDecimal = "",
+            .exponent = std::nullopt,
+        };
+    }
+
+    mantissa.erase(mantissa.find_last_not_of('0') + 1);
 
     // Scientific notation, easiest case, looks like M.ANTISSAeEXPONENT
     if (exponent <= READABLE_MIN || exponent >= READABLE_MAX)

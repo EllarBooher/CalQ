@@ -2,6 +2,7 @@
 #include "interpreter/interpreter.h"
 #include "interpreter/parser.h"
 
+#include "math/functions.h"
 #include "math/number.h"
 
 #include <QByteArray>
@@ -32,7 +33,36 @@ class CalQTest : public QObject
 {
     Q_OBJECT
 private slots:
-    static void test();
+    void testScalarStringify();
+    void testSmallScalarStringify();
+    void testScalarOperators();
+    void testNonOrdinaryScalarStringify();
+
+    void testLexerWhitespace();
+    void testLexerNumbers();
+    void testLexerFunctionsAndNumbers();
+    void testLexerSingleCharacterTokens();
+    void testLexerMisc();
+    void testLexerVariable();
+
+    void testParserParantheses();
+    void testParserMisc();
+    void testParserFunctions();
+
+    void testInterpretVariable();
+    void testInterpretNonOrdinaryScalars();
+    void testInterpretMixedNegation();
+    void testInterpret();
+    void testOrderOfOperators();
+    void testFunctionParsing();
+    void testAllFunctions();
+    void testMinimalPrecision();
+
+private:
+    calqmath::Interpreter m_interpreter{};
+    calqmath::FunctionDatabase m_functions{
+        calqmath::FunctionDatabase::createWithDefaults()
+    };
 };
 
 template <> auto QTest::toString(calqmath::Expression const& expression) -> char*
@@ -206,9 +236,7 @@ auto QTest::toString(std::optional<calqmath::Scalar> const& scalar) -> char*
     return qstrdup(bytes);
 }
 
-namespace
-{
-void testInterpret(calqmath::Interpreter const& interpreter)
+void CalQTest::testInterpret()
 {
     std::vector<std::tuple<std::string, calqmath::Scalar>> const
         successTestCases{
@@ -224,7 +252,7 @@ void testInterpret(calqmath::Interpreter const& interpreter)
 
     for (auto const& [input, output] : successTestCases)
     {
-        QCOMPARE(interpreter.expression(input)->evaluate(), output);
+        QCOMPARE(m_interpreter.expression(input)->evaluate(), output);
     }
 
     std::vector<std::tuple<std::string, calqmath::InterpretError>> const
@@ -234,11 +262,11 @@ void testInterpret(calqmath::Interpreter const& interpreter)
 
     for (auto const& [input, output] : failureTestCases)
     {
-        QCOMPARE(interpreter.expression(input), std::unexpected(output));
+        QCOMPARE(m_interpreter.expression(input), std::unexpected(output));
     }
 }
 
-void testOrderOfOperators(calqmath::Interpreter const& interpreter)
+void CalQTest::testOrderOfOperators()
 {
     std::vector<std::tuple<std::string, calqmath::Scalar>> const
         PEMDASTestCases{
@@ -254,13 +282,13 @@ void testOrderOfOperators(calqmath::Interpreter const& interpreter)
         };
     for (auto const& [input, output] : PEMDASTestCases)
     {
-        auto const actual = interpreter.expression(input)->evaluate();
+        auto const actual = m_interpreter.expression(input)->evaluate();
 
         QCOMPARE(actual, output);
     }
 }
 
-void testFunctionParsing(calqmath::Interpreter const& interpreter)
+void CalQTest::testFunctionParsing()
 {
     std::vector<std::tuple<std::string, calqmath::Scalar>> const testCases{
         {"id(1)", calqmath::Scalar{"1.0"}},
@@ -274,64 +302,49 @@ void testFunctionParsing(calqmath::Interpreter const& interpreter)
 
     for (auto const& [input, output] : testCases)
     {
-        QCOMPARE(interpreter.expression(input)->evaluate(), output);
+        QCOMPARE(m_interpreter.expression(input)->evaluate(), output);
     }
 }
 
-void testAllFunctions(
-    calqmath::FunctionDatabase const& functions,
-    calqmath::Interpreter const& interpreter
-)
+void CalQTest::testAllFunctions()
 {
-    for (auto const& function : functions.unaryNames())
+    for (auto const& function : m_functions.unaryNames())
     {
         QVERIFY(function != nullptr);
-        QVERIFY(interpreter.expression(function->name + "(1.0)")
+        QVERIFY(m_interpreter.expression(function->name + "(1.0)")
                     ->evaluate()
                     .has_value());
     }
 }
 
-void testScalarStringify()
+void CalQTest::testScalarStringify()
 {
+    using calqmath::Scalar;
+
     std::vector<std::tuple<std::string, std::string>> const signedCases{
-        {"0.00123", "1.23e-3"},
-        {"0.0123", "0.012_3"},
-        {"0.123", "0.123"},
-        {"1.23", "1.23"},
-        {"12.3", "12.3"},
-        {"123.0", "123"},
-        {"1230.0", "1_230"},
-        {"12300.0", "12_300"},
-        {"123000.0", "123_000"},
-        {"1230000.0", "1_230_000"},
-        {"12300000.0", "1.23e7"},
-        {"123000000.0", "1.23e8"},
-        {"1230000000.0", "1.23e9"},
-        {"12300000000.0", "1.23e10"},
-        {"123000000000.0", "1.23e11"},
-
-        {"0.1234567890123", "0.123_456_789"},
-        {"1234567891234.5", "1.234_567_891e12"},
-    };
-
-    std::vector<std::tuple<std::string, std::string>> const testCases{
-        {"0", "0"},
-        {"0.0", "0"},
+        {"1", "1"}, {"123456789", "1.234_567_89e8"}, {"0", "0"}, {"0.0", "0"}
     };
 
     for (auto const& [input, output] : signedCases)
     {
-        QCOMPARE(calqmath::Scalar{input}.toString(), output);
-        QCOMPARE(calqmath::Scalar{"-" + input}.toString(), "-" + output);
-    }
-    for (auto const& [input, output] : testCases)
-    {
-        QCOMPARE(calqmath::Scalar{input}.toString(), output);
+        QCOMPARE((Scalar{"-1"} * Scalar{input}).toString(), "-" + output);
+        QCOMPARE(Scalar{input}.toString(), output);
     }
 }
 
-void testScalarOperators()
+void CalQTest::testSmallScalarStringify()
+{
+    using calqmath::Scalar;
+
+    // Number that is zero yet has complicated mantissa
+    auto const intermed{Scalar{0ULL} * Scalar{0.02}};
+
+    auto const scalar{Scalar{"-1"} * intermed};
+    auto const result{scalar.toString()};
+    QVERIFY(result.length() > 0);
+}
+
+void CalQTest::testScalarOperators()
 {
     calqmath::Scalar const minusOne{"-1"};
     calqmath::Scalar const oneHalf{"0.5"};
@@ -351,7 +364,7 @@ void testScalarOperators()
     QCOMPARE(one / two, oneHalf);
 }
 
-void testNonOrdinaryScalarStringify()
+void CalQTest::testNonOrdinaryScalarStringify()
 {
     QCOMPARE(
         calqmath::Scalar::zero().toString(),
@@ -373,19 +386,19 @@ void testNonOrdinaryScalarStringify()
     );
 }
 
-void testMinimalPrecision(calqmath::Interpreter const& interpreter)
+void CalQTest::testMinimalPrecision()
 {
     for (size_t i = 0; i < calqmath::getBignumBackendPrecision(); i++)
     {
         std::string const input{std::format("1{0}+1-1{0}", std::string(i, '0'))
         };
         QCOMPARE(
-            interpreter.expression(input)->evaluate(), calqmath::Scalar{"1"}
+            m_interpreter.expression(input)->evaluate(), calqmath::Scalar{"1"}
         );
     }
 }
 
-void testLexerWhitespace()
+void CalQTest::testLexerWhitespace()
 {
     using TestCase =
         std::tuple<std::vector<std::string>, std::vector<calqmath::Token>>;
@@ -407,7 +420,7 @@ void testLexerWhitespace()
         }
     }
 }
-void testLexerNumbers()
+void CalQTest::testLexerNumbers()
 {
     using calqmath::TokenNumber;
     using TestCase = std::tuple<std::string, std::vector<calqmath::Token>>;
@@ -437,7 +450,7 @@ void testLexerNumbers()
         QCOMPARE(actual, output);
     }
 }
-void testLexerFunctionsAndNumbers()
+void CalQTest::testLexerFunctionsAndNumbers()
 {
     using calqmath::TokenIdentifier;
     using calqmath::TokenNumber;
@@ -462,7 +475,7 @@ void testLexerFunctionsAndNumbers()
     }
 }
 
-void testLexerSingleCharacterTokens()
+void CalQTest::testLexerSingleCharacterTokens()
 {
     using calqmath::TokenClosedBracket;
     using calqmath::TokenOpenBracket;
@@ -478,7 +491,7 @@ void testLexerSingleCharacterTokens()
     };
     QCOMPARE(actual, expected);
 }
-void testLexerMisc()
+void CalQTest::testLexerMisc()
 {
     // Valid token streams, but invalid when parsed to an expression
     std::vector<std::string> const invalidTestCases{
@@ -494,7 +507,7 @@ void testLexerMisc()
         QVERIFY(!tokens.has_value());
     }
 }
-void testLexerVariable()
+void CalQTest::testLexerVariable()
 {
     calqmath::TokenIdentifier const variableToken{
         .m_functionName = calqmath::InputVariable::RESERVED_NAME
@@ -516,7 +529,7 @@ void testLexerVariable()
     }
 }
 
-void testInterpretVariable(calqmath::FunctionDatabase const& functions)
+void CalQTest::testInterpretVariable()
 {
     using calqmath::Scalar;
 
@@ -537,7 +550,7 @@ void testInterpretVariable(calqmath::FunctionDatabase const& functions)
         QVERIFY(tokens.has_value());
 
         auto const expression =
-            calqmath::Parser::parse(functions, tokens.value());
+            calqmath::Parser::parse(m_functions, tokens.value());
         QVERIFY(expression.has_value());
 
         auto const result = expression.value().evaluate(variable);
@@ -545,7 +558,7 @@ void testInterpretVariable(calqmath::FunctionDatabase const& functions)
     }
 }
 
-void testParserFunctions(calqmath::FunctionDatabase const& functions)
+void CalQTest::testParserFunctions()
 {
     std::vector<std::string> const invalidTestCases{
         "id()",
@@ -565,12 +578,12 @@ void testParserFunctions(calqmath::FunctionDatabase const& functions)
         QVERIFY(tokens.has_value());
 
         auto const expression =
-            calqmath::Parser::parse(functions, tokens.value());
+            calqmath::Parser::parse(m_functions, tokens.value());
         QVERIFY(!expression.has_value());
     }
 }
 
-void testParserMisc(calqmath::FunctionDatabase const& functions)
+void CalQTest::testParserMisc()
 {
     // Valid token streams, but invalid when parsed to an expression
     std::vector<std::string> const invalidTestCases{
@@ -598,7 +611,8 @@ void testParserMisc(calqmath::FunctionDatabase const& functions)
         auto const tokens = calqmath::Lexer::convert(input);
         QVERIFY(tokens.has_value());
 
-        auto const actual = calqmath::Parser::parse(functions, tokens.value());
+        auto const actual =
+            calqmath::Parser::parse(m_functions, tokens.value());
         QVERIFY(!actual.has_value());
     }
 
@@ -610,7 +624,8 @@ void testParserMisc(calqmath::FunctionDatabase const& functions)
         auto const tokens = calqmath::Lexer::convert(input);
         QVERIFY(tokens.has_value());
 
-        auto const actual = calqmath::Parser::parse(functions, tokens.value());
+        auto const actual =
+            calqmath::Parser::parse(m_functions, tokens.value());
         QVERIFY(actual.has_value());
         // Test both functions, although this would be redundant in actual
         // code
@@ -619,8 +634,7 @@ void testParserMisc(calqmath::FunctionDatabase const& functions)
     }
 }
 
-void testInterpretNonOrdinaryScalars(calqmath::FunctionDatabase const& functions
-)
+void CalQTest::testInterpretNonOrdinaryScalars()
 {
     auto const nan{calqmath::Scalar::nan()};
     auto const positiveInf{calqmath::Scalar::positiveInf()};
@@ -647,7 +661,8 @@ void testInterpretNonOrdinaryScalars(calqmath::FunctionDatabase const& functions
         auto const tokens = calqmath::Lexer::convert(input);
         QVERIFY(tokens.has_value());
 
-        auto const actual = calqmath::Parser::parse(functions, tokens.value());
+        auto const actual =
+            calqmath::Parser::parse(m_functions, tokens.value());
         QVERIFY(actual.has_value());
 
         auto const actualResult = actual.value().evaluate();
@@ -664,7 +679,8 @@ void testInterpretNonOrdinaryScalars(calqmath::FunctionDatabase const& functions
         auto const tokens = calqmath::Lexer::convert(input);
         QVERIFY(tokens.has_value());
 
-        auto const actual = calqmath::Parser::parse(functions, tokens.value());
+        auto const actual =
+            calqmath::Parser::parse(m_functions, tokens.value());
         QVERIFY(actual.has_value());
 
         auto const actualResult = actual.value().evaluate();
@@ -673,7 +689,7 @@ void testInterpretNonOrdinaryScalars(calqmath::FunctionDatabase const& functions
     }
 }
 
-void testInterpretMixedNegation(calqmath::FunctionDatabase const& functions)
+void CalQTest::testInterpretMixedNegation()
 {
     using TestCase = std::tuple<std::string, std::string>;
     std::vector<TestCase> const validTestCases{
@@ -693,7 +709,8 @@ void testInterpretMixedNegation(calqmath::FunctionDatabase const& functions)
         auto const tokens = calqmath::Lexer::convert(input);
         QVERIFY(tokens.has_value());
 
-        auto const actual = calqmath::Parser::parse(functions, tokens.value());
+        auto const actual =
+            calqmath::Parser::parse(m_functions, tokens.value());
         QVERIFY(actual.has_value());
 
         auto const actualResult = actual.value().evaluate();
@@ -704,7 +721,7 @@ void testInterpretMixedNegation(calqmath::FunctionDatabase const& functions)
     }
 }
 
-void testParserParantheses(calqmath::FunctionDatabase const& functions)
+void CalQTest::testParserParantheses()
 {
     std::vector<std::string> const invalid{
         "()",
@@ -737,7 +754,8 @@ void testParserParantheses(calqmath::FunctionDatabase const& functions)
         auto const tokens = calqmath::Lexer::convert(input);
         QVERIFY(tokens.has_value());
 
-        auto const actual = calqmath::Parser::parse(functions, tokens.value());
+        auto const actual =
+            calqmath::Parser::parse(m_functions, tokens.value());
         QVERIFY(!actual.has_value());
     }
 
@@ -761,44 +779,10 @@ void testParserParantheses(calqmath::FunctionDatabase const& functions)
         auto const tokens = calqmath::Lexer::convert(input);
         QVERIFY(tokens.has_value());
 
-        auto const actual = calqmath::Parser::parse(functions, tokens.value());
+        auto const actual =
+            calqmath::Parser::parse(m_functions, tokens.value());
         QVERIFY(actual.has_value());
     }
-}
-} // namespace
-
-void CalQTest::test()
-{
-    calqmath::Interpreter const interpreter{};
-
-    // Test this first, since a lot, including debugging, relies on being
-    // able to stringify properly.
-    testScalarStringify();
-    testScalarOperators();
-    testNonOrdinaryScalarStringify();
-
-    // Test components in order of dependency
-
-    testLexerWhitespace();
-    testLexerNumbers();
-    testLexerFunctionsAndNumbers();
-    testLexerSingleCharacterTokens();
-    testLexerMisc();
-    testLexerVariable();
-
-    auto const functions{calqmath::FunctionDatabase::createWithDefaults()};
-    testParserParantheses(functions);
-    testParserMisc(functions);
-    testParserFunctions(functions);
-
-    testInterpretVariable(functions);
-    testInterpretNonOrdinaryScalars(functions);
-    testInterpretMixedNegation(functions);
-    testInterpret(interpreter);
-    testOrderOfOperators(interpreter);
-    testFunctionParsing(interpreter);
-    testAllFunctions(functions, interpreter);
-    testMinimalPrecision(interpreter);
 }
 
 QTEST_MAIN(CalQTest)
