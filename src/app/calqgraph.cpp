@@ -46,7 +46,7 @@ constexpr double MATH_UNITS_PER_GRAPH_UNITS =
 
 namespace
 {
-enum class EndpointStyle
+enum class EndpointStyle : uint8_t
 {
     // Open/excluded end of an interval
     Open,
@@ -63,7 +63,7 @@ void draw(
     QPen const& functionPen,
     QRectF const& rectGraph,
     QRectF const& rectViewport,
-    double graphScale,
+    double const graphScale,
     calqmath::Scalar const& currentX,
     calqmath::Scalar const& currentY,
     EndpointStyle const currentStyle,
@@ -148,6 +148,117 @@ void draw(
     painter.setPen(functionPen);
     painter.drawLine(viewportStart, viewportEnd);
 }
+
+void drawExpression(
+    QPainter& painter,
+    calqmath::Expression const& expression,
+    QRectF const& rectViewport,
+    QRectF const& rectGraph,
+    double const graphScale
+)
+{
+    if (rectViewport.width() <= 0.0)
+    {
+        return;
+    }
+
+    QPen const functionPen{Qt::red, 2, Qt::SolidLine};
+    QPen const functionEndpointPen{Qt::red, 1, Qt::SolidLine};
+
+    auto const xMin{rectGraph.left() * MATH_UNITS_PER_GRAPH_UNITS};
+    auto const xMax{rectGraph.right() * MATH_UNITS_PER_GRAPH_UNITS};
+
+    auto const middleXDelta{2.0 * (xMax - xMin) / rectViewport.width()};
+
+    auto curve{calqmath::GraphCurve::generateUnitLine(
+        calqmath::Scalar{xMin},
+        calqmath::Scalar{xMax},
+        calqmath::Scalar{middleXDelta}
+    )};
+
+    curve = expression.graph(curve);
+
+    using calqmath::Scalar;
+
+    for (auto const& chunk : curve.chunks)
+    {
+        if (chunk.gridY.empty())
+        {
+            draw(
+                painter,
+                functionEndpointPen,
+                functionPen,
+                rectGraph,
+                rectViewport,
+                graphScale,
+                chunk.beginX,
+                chunk.beginY,
+                chunk.beginIsOpen ? ::EndpointStyle::Open
+                                  : ::EndpointStyle::Closed,
+                chunk.endX,
+                chunk.endY,
+                chunk.endIsOpen ? ::EndpointStyle::Open
+                                : ::EndpointStyle::Closed
+            );
+        }
+        else
+        {
+            draw(
+                painter,
+                functionEndpointPen,
+                functionPen,
+                rectGraph,
+                rectViewport,
+                graphScale,
+                chunk.beginX,
+                chunk.beginY,
+                chunk.beginIsOpen ? ::EndpointStyle::Open
+                                  : ::EndpointStyle::Closed,
+                calqmath::Scalar{chunk.gridIdxBegin} * chunk.gridXDelta,
+                chunk.gridY.front(),
+                ::EndpointStyle::None
+            );
+
+            for (auto const gridIdx :
+                 std::views::iota(chunk.gridIdxBegin, chunk.gridIdxEnd - 1))
+            {
+                auto const middleIdx{gridIdx - chunk.gridIdxBegin};
+
+                draw(
+                    painter,
+                    functionEndpointPen,
+                    functionPen,
+                    rectGraph,
+                    rectViewport,
+                    graphScale,
+                    calqmath::Scalar{gridIdx} * chunk.gridXDelta,
+                    chunk.gridY.at(middleIdx),
+                    ::EndpointStyle::None,
+                    calqmath::Scalar{gridIdx + 1} * chunk.gridXDelta,
+                    chunk.gridY.at(middleIdx + 1),
+                    ::EndpointStyle::None
+                );
+            }
+
+            draw(
+                painter,
+                functionEndpointPen,
+                functionPen,
+                rectGraph,
+                rectViewport,
+                graphScale,
+                calqmath::Scalar{chunk.gridIdxEnd - 1} * chunk.gridXDelta,
+                chunk.gridY.back(),
+                ::EndpointStyle::None,
+                chunk.endX,
+                chunk.endY,
+                chunk.endIsOpen ? ::EndpointStyle::Open
+                                : ::EndpointStyle::Closed
+            );
+        }
+    }
+}
+
 } // namespace
 
 void calqapp::CalQGraph::paintGL()
@@ -176,8 +287,6 @@ void calqapp::CalQGraph::paintGL()
         return;
     }
 
-    QPen const functionPen{Qt::red, 2, Qt::SolidLine};
-    QPen const functionEndpointPen{Qt::red, 1, Qt::SolidLine};
     QPen const axisPen{QColor{25, 25, 25}, 2, Qt::SolidLine};
     QPen const majorPen{QColor{70, 70, 70}, 1, Qt::SolidLine};
 
@@ -351,102 +460,11 @@ void calqapp::CalQGraph::paintGL()
         );
     }
 
-    if (m_expression.has_value() && rectViewport.width() > 0.0)
+    if (m_expression.has_value())
     {
-        auto const& expression = m_expression.value();
-
-        auto const xMin{rectGraph.left() * MATH_UNITS_PER_GRAPH_UNITS};
-        auto const xMax{rectGraph.right() * MATH_UNITS_PER_GRAPH_UNITS};
-
-        auto const middleXDelta{2.0 * (xMax - xMin) / rectViewport.width()};
-
-        auto curve{calqmath::GraphCurve::generateUnitLine(
-            calqmath::Scalar{xMin},
-            calqmath::Scalar{xMax},
-            calqmath::Scalar{middleXDelta}
-        )};
-
-        curve = expression.graph(curve);
-
-        using calqmath::Scalar;
-
-        for (auto const& chunk : curve.chunks)
-        {
-            if (chunk.gridY.empty())
-            {
-                draw(
-                    painter,
-                    functionEndpointPen,
-                    functionPen,
-                    rectGraph,
-                    rectViewport,
-                    m_graphScale,
-                    chunk.beginX,
-                    chunk.beginY,
-                    chunk.beginIsOpen ? ::EndpointStyle::Open
-                                      : ::EndpointStyle::Closed,
-                    chunk.endX,
-                    chunk.endY,
-                    chunk.endIsOpen ? ::EndpointStyle::Open
-                                    : ::EndpointStyle::Closed
-                );
-            }
-            else
-            {
-                draw(
-                    painter,
-                    functionEndpointPen,
-                    functionPen,
-                    rectGraph,
-                    rectViewport,
-                    m_graphScale,
-                    chunk.beginX,
-                    chunk.beginY,
-                    chunk.beginIsOpen ? ::EndpointStyle::Open
-                                      : ::EndpointStyle::Closed,
-                    calqmath::Scalar{chunk.gridIdxBegin} * chunk.gridXDelta,
-                    chunk.gridY.front(),
-                    ::EndpointStyle::None
-                );
-
-                for (auto const gridIdx :
-                     std::views::iota(chunk.gridIdxBegin, chunk.gridIdxEnd - 1))
-                {
-                    auto const middleIdx{gridIdx - chunk.gridIdxBegin};
-
-                    draw(
-                        painter,
-                        functionEndpointPen,
-                        functionPen,
-                        rectGraph,
-                        rectViewport,
-                        m_graphScale,
-                        calqmath::Scalar{gridIdx} * chunk.gridXDelta,
-                        chunk.gridY.at(middleIdx),
-                        ::EndpointStyle::None,
-                        calqmath::Scalar{gridIdx + 1} * chunk.gridXDelta,
-                        chunk.gridY.at(middleIdx + 1),
-                        ::EndpointStyle::None
-                    );
-                }
-
-                draw(
-                    painter,
-                    functionEndpointPen,
-                    functionPen,
-                    rectGraph,
-                    rectViewport,
-                    m_graphScale,
-                    calqmath::Scalar{chunk.gridIdxEnd - 1} * chunk.gridXDelta,
-                    chunk.gridY.back(),
-                    ::EndpointStyle::None,
-                    chunk.endX,
-                    chunk.endY,
-                    chunk.endIsOpen ? ::EndpointStyle::Open
-                                    : ::EndpointStyle::Closed
-                );
-            }
-        }
+        ::drawExpression(
+            painter, m_expression.value(), rectViewport, rectGraph, m_graphScale
+        );
     }
 }
 

@@ -16,101 +16,33 @@ using calqmath::GraphCurve, calqmath::GraphChunk, calqmath::Functions,
 
 auto id(GraphCurve const& curve) -> GraphCurve { return curve; }
 
-auto floor(GraphCurve const& curve) -> GraphCurve
+auto floorChunks(GraphChunk const& inputChunk) -> std::vector<GraphChunk>
 {
-    GraphCurve output{};
-    for (auto const& inputChunk : curve.chunks)
+    std::vector<GraphChunk> outputChunks{};
+
+    Scalar xFirst = inputChunk.beginX;
+    Scalar yFirst = inputChunk.beginY;
+
+    GraphChunk outputChunk;
+    outputChunk.beginX = xFirst;
+    outputChunk.beginIsOpen = inputChunk.beginIsOpen;
+    outputChunk.beginY = Functions::floor(yFirst);
+    outputChunk.gridXDelta = inputChunk.gridXDelta;
+    outputChunk.gridIdxBegin = inputChunk.gridIdxBegin;
+    outputChunk.gridY = {};
+    // Finish chunk later, as we iterate the grid for possible
+    // discontinuities
+
+    for (auto gridIdx :
+         std::views::iota(inputChunk.gridIdxBegin, inputChunk.gridIdxEnd + 1))
     {
-        Scalar xFirst = inputChunk.beginX;
-        Scalar yFirst = inputChunk.beginY;
-
-        GraphChunk outputChunk;
-        outputChunk.beginX = xFirst;
-        outputChunk.beginIsOpen = inputChunk.beginIsOpen;
-        outputChunk.beginY = Functions::floor(yFirst);
-        outputChunk.gridXDelta = inputChunk.gridXDelta;
-        outputChunk.gridIdxBegin = inputChunk.gridIdxBegin;
-        outputChunk.gridY = {};
-        // Finish chunk later, as we iterate the grid for possible
-        // discontinuities
-
-        for (auto gridIdx :
-             std::views::iota(inputChunk.gridIdxBegin, inputChunk.gridIdxEnd))
-        {
-            Scalar const xSecond = Scalar{gridIdx} * inputChunk.gridXDelta;
-            Scalar const ySecond =
-                inputChunk.gridY[gridIdx - inputChunk.gridIdxBegin];
-
-            Scalar const yFirstMapped = Functions::floor(yFirst);
-            Scalar const ySecondMapped = Functions::floor(ySecond);
-
-            bool const continuous{ySecondMapped == yFirstMapped};
-            if (continuous)
-            {
-                outputChunk.gridY.push_back(ySecondMapped);
-            }
-            else
-            {
-                // solve mx+y0=y as x = (y-y0) / m, for every step this interval
-                // fragments into
-                Scalar const slopeInverse =
-                    (xSecond - xFirst) / (ySecond - yFirst);
-
-                [[maybe_unused]]
-                bool const willCreateIntragridChunks =
-                    Functions::round(ySecondMapped - yFirstMapped)
-                    > Scalar{"1"};
-                assert(!willCreateIntragridChunks); // TODO
-
-                auto splitX = slopeInverse * (ySecondMapped - yFirst) + xFirst;
-                if (splitX > Scalar{gridIdx} * outputChunk.gridXDelta)
-                {
-                    splitX = Scalar{gridIdx} * outputChunk.gridXDelta;
-                }
-
-                outputChunk.gridIdxEnd = gridIdx;
-
-                outputChunk.endX = splitX;
-                outputChunk.endY = yFirstMapped;
-
-                // Floor function sends the closed point down
-                auto const isOpenOnLeft = false;
-
-                outputChunk.endIsOpen = isOpenOnLeft;
-
-                assert(
-                    outputChunk.endX >= Scalar{outputChunk.gridIdxEnd - 1}
-                                            * outputChunk.gridXDelta
-                );
-                if (outputChunk.gridIdxEnd <= outputChunk.gridIdxBegin)
-                {
-                    outputChunk.gridY = {};
-                    outputChunk.gridIdxBegin = 0;
-                    outputChunk.gridIdxEnd = 0;
-                }
-
-#ifdef CALQ_DEBUG
-                GraphChunk::setDebug(outputChunk);
-#endif
-
-                assert(GraphChunk::isValid(outputChunk));
-                output.chunks.emplace_back(std::move(outputChunk));
-
-                outputChunk.beginX = splitX;
-                outputChunk.beginIsOpen = !isOpenOnLeft;
-                outputChunk.beginY = ySecondMapped;
-
-                outputChunk.gridXDelta = inputChunk.gridXDelta;
-                outputChunk.gridIdxBegin = gridIdx;
-                outputChunk.gridY = {ySecondMapped};
-            }
-
-            yFirst = ySecond;
-            xFirst = xSecond;
-        }
-
-        Scalar const ySecond = inputChunk.endY;
-        Scalar const xSecond = inputChunk.endX;
+        auto const isLastSegment = gridIdx == inputChunk.gridIdxEnd;
+        Scalar const xSecond = isLastSegment
+                                 ? inputChunk.endX
+                                 : Scalar{gridIdx} * inputChunk.gridXDelta;
+        Scalar const ySecond =
+            isLastSegment ? inputChunk.endY
+                          : inputChunk.gridY[gridIdx - inputChunk.gridIdxBegin];
 
         Scalar const yFirstMapped = Functions::floor(yFirst);
         Scalar const ySecondMapped = Functions::floor(ySecond);
@@ -118,7 +50,14 @@ auto floor(GraphCurve const& curve) -> GraphCurve
         bool const continuous{ySecondMapped == yFirstMapped};
         if (continuous)
         {
-            outputChunk.gridIdxEnd = inputChunk.gridIdxEnd;
+            if (isLastSegment)
+            {
+                outputChunk.gridIdxEnd = inputChunk.gridIdxEnd;
+            }
+            else
+            {
+                outputChunk.gridY.push_back(ySecondMapped);
+            }
         }
         else
         {
@@ -132,12 +71,13 @@ auto floor(GraphCurve const& curve) -> GraphCurve
             assert(!willCreateIntragridChunks); // TODO
 
             auto splitX = slopeInverse * (ySecondMapped - yFirst) + xFirst;
-            if (splitX > Scalar{inputChunk.gridIdxEnd} * outputChunk.gridXDelta)
+            if (splitX > Scalar{gridIdx} * outputChunk.gridXDelta)
             {
-                splitX = Scalar{inputChunk.gridIdxEnd} * outputChunk.gridXDelta;
+                splitX = Scalar{gridIdx} * outputChunk.gridXDelta;
             }
 
-            outputChunk.gridIdxEnd = inputChunk.gridIdxEnd;
+            outputChunk.gridIdxEnd = gridIdx;
+
             outputChunk.endX = splitX;
             outputChunk.endY = yFirstMapped;
 
@@ -162,41 +102,58 @@ auto floor(GraphCurve const& curve) -> GraphCurve
 #endif
 
             assert(GraphChunk::isValid(outputChunk));
-            output.chunks.emplace_back(std::move(outputChunk));
+            outputChunks.emplace_back(std::move(outputChunk));
 
             outputChunk.beginX = splitX;
             outputChunk.beginIsOpen = !isOpenOnLeft;
             outputChunk.beginY = ySecondMapped;
+
             outputChunk.gridXDelta = inputChunk.gridXDelta;
-
-            outputChunk.gridY = {};
-            outputChunk.gridIdxBegin = 0;
-            outputChunk.gridIdxEnd = 0;
+            outputChunk.gridIdxBegin = gridIdx;
+            outputChunk.gridY = {ySecondMapped};
         }
 
-        outputChunk.endX = xSecond;
-        outputChunk.endIsOpen = inputChunk.endIsOpen;
-        outputChunk.endY = ySecondMapped;
+        yFirst = ySecond;
+        xFirst = xSecond;
+    }
 
-        if (outputChunk.gridIdxEnd <= outputChunk.gridIdxBegin)
-        {
-            outputChunk.gridY = {};
-            outputChunk.gridIdxBegin = 0;
-            outputChunk.gridIdxEnd = 0;
-        }
+    outputChunk.gridIdxEnd = inputChunk.gridIdxEnd;
+
+    outputChunk.endX = inputChunk.endX;
+    outputChunk.endIsOpen = inputChunk.endIsOpen;
+    outputChunk.endY = Functions::floor(inputChunk.endY);
+
+    assert(
+        outputChunk.endX
+        >= Scalar{outputChunk.gridIdxEnd - 1} * outputChunk.gridXDelta
+    );
+    if (outputChunk.gridIdxEnd <= outputChunk.gridIdxBegin)
+    {
+        outputChunk.gridY = {};
+        outputChunk.gridIdxBegin = 0;
+        outputChunk.gridIdxEnd = 0;
+    }
 
 #ifdef CALQ_DEBUG
-        GraphChunk::setDebug(outputChunk);
+    GraphChunk::setDebug(outputChunk);
 #endif
 
-        if (GraphChunk::isPointLike(outputChunk))
-        {
-            continue;
-        }
+    assert(GraphChunk::isValid(outputChunk));
+    outputChunks.emplace_back(std::move(outputChunk));
 
-        assert(GraphChunk::isValid(outputChunk));
-        output.chunks.emplace_back(std::move(outputChunk));
-    };
+    return outputChunks;
+}
+
+auto floor(GraphCurve const& curve) -> GraphCurve
+{
+    GraphCurve output{};
+    for (auto const& inputChunk : curve.chunks)
+    {
+        auto const chunks{floorChunks(inputChunk)};
+        output.chunks.insert(
+            std::end(output.chunks), std::begin(chunks), std::end(chunks)
+        );
+    }
     return output;
 };
 
@@ -242,6 +199,7 @@ auto FunctionDatabase::createWithDefaults() -> FunctionDatabase
 {
     FunctionDatabase result{};
 
+    // NOLINTBEGIN(modernize-use-designated-initializers)
     std::vector<UnaryFunction> const functions = {
         {"id", Functions::id, ::graph::id},
         {"floor", Functions::floor, ::graph::floor},
@@ -276,6 +234,7 @@ auto FunctionDatabase::createWithDefaults() -> FunctionDatabase
         {"atanh", Functions::atanh},
 */
     };
+    // NOLINTEND(modernize-use-designated-initializers)
 
     result.m_unaryFunctions =
         std::map<std::string, std::shared_ptr<UnaryFunction const>>();

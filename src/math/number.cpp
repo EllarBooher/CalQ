@@ -153,8 +153,6 @@ auto Scalar::toMantissaExponent() const -> std::tuple<std::string, ptrdiff_t>
 
     std::get<1>(result) = ptrdiff_t{exponent};
 
-    auto& str = std::get<0>(result);
-
     return result;
 }
 

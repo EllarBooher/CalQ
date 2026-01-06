@@ -15,9 +15,9 @@ namespace
 auto trim(std::string const& rawInput) -> std::string
 {
     std::string output = rawInput;
-    std::erase_if(
-        output, [](unsigned char character) { return std::isspace(character); }
-    );
+    std::erase_if(output, [](unsigned char character) -> int {
+        return std::isspace(character);
+    });
     return output;
 }
 } // namespace

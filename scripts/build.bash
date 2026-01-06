@@ -6,6 +6,7 @@ Builds CalQ. Assumes Linux conventions, things may break if using WSL on Windows
 usage:
     $(basename "$0") -h | --help
     $(basename "$0") --qt-dir=<qt directory> --cmake=<cmake binary> --cmake-preset=<cmake preset> --vcpkg-root=<vcpkg root>
+               [--cmake-args=<cmake arguments>]
                [--out-dir=<output directory> --src-dir=<source directory> --build-config=<build config> --cmake-prefix=<list of paths>]
                [--force-clean]
 
@@ -18,6 +19,8 @@ options:
 
     --cmake-preset  Which CMake preset to use, specified in CMakePresets.json or CMakeUserPresets.json.
                     Passed to CMake with '--preset'.
+
+    --cmake-args    Extra arguments passed directly to CMake during the configure step. Useful for -D style variables.
 
     --qt-dir        Root directory of a specific Qt installation's CMake config scripts.
 
@@ -50,7 +53,7 @@ examples:
         ./scripts/build.bash --out-dir ./build/linux --qt-dir /opt/qt/6.9.1/gcc_64 --cmake /opt/qt/Tools/CMake/bin/cmake --cmake-preset x64-linux --vcpkg-root /opt/vcpkg --force-clean
 "
 
-TEMP=$(getopt -l 'out-dir:,src-dir:,qt-dir:,cmake:,build-config:,cmake-preset:,vcpkg-root:,cmake-prefix:,force-clean,clean,help,wsl-interop,parallel' -n 'build.bash' -- "h" "$@")
+TEMP=$(getopt -l 'out-dir:,src-dir:,qt-dir:,cmake:,cmake-args:,build-config:,cmake-preset:,vcpkg-root:,cmake-prefix:,force-clean,clean,help,wsl-interop,parallel' -n 'build.bash' -- "h" "$@")
 
 if [ $? -ne 0 ]; then
 	echo 'Terminating...' >&2
@@ -65,6 +68,7 @@ OUT_DIR="./build/$PRESET"
 SRC_DIR="."
 QT_DIR=""
 CMAKE=""
+CMAKE_ARGS=""
 PATH_PREFIX=""
 BUILD_CONFIG="Release"
 FORCE_CLEAN=false
@@ -94,6 +98,11 @@ while true; do
     ;;
     '--cmake')
         CMAKE="$2"
+        shift 2
+        continue
+    ;;
+    '--cmake-args')
+        CMAKE_ARGS="$2"
         shift 2
         continue
     ;;
@@ -188,7 +197,7 @@ BUILD_DIR="$OUT_DIR/$BUILD_CONFIG/build"
 INSTALL_DIR="$OUT_DIR/$BUILD_CONFIG/install"
 
 if command -v wslpath >/dev/null 2>&1; then
-    realpath -qL "$CMAKE"
+    realpath -qL "$CMAKE" >/dev/null
     if [ $? -ne 0 ]; then
         CMAKE=$(wslpath "$CMAKE")
     fi
@@ -196,7 +205,11 @@ fi
 
 CMAKE_PREFIX_PATH="$QT_DIR;$PATH_PREFIX"
 
-echo "Using:
+echo "
+*************************************
+*************************************
+
+Building CalQ using:
     Source Directory   : $SRC_DIR
     Build Directory    : $BUILD_DIR
     Install Directory  : $INSTALL_DIR
@@ -206,6 +219,7 @@ echo "Using:
     PATH               : $PATH
     VCPKG_ROOT         : $VCPKG_ROOT
     CMAKE_PREFIX_PATH  : $CMAKE_PREFIX_PATH
+    CMAKE_ARGS         : $CMAKE_ARGS
 "
 
 if [ $PARALLEL = true ]; then
@@ -223,7 +237,7 @@ if [ $PARALLEL = true ]; then
     echo "Copying source into '$SRC_DIR_temp'..."
 
     mkdir -p "$SRC_DIR_temp"
-    cp -r "$SRC_DIR/src" "$SRC_DIR/cmake" .clang-tidy CMakeLists.txt CMakePresets.json resources.qrc vcpkg.json "$SRC_DIR_temp"
+    cp -r "$SRC_DIR/src" "$SRC_DIR/cmake" .clang-tidy CMakeLists.txt CMakePresets.json vcpkg.json "$SRC_DIR_temp"
     SRC_DIR="$SRC_DIR_temp"
 
     mkdir -p $BUILD_DIR
@@ -269,13 +283,19 @@ echo "
 ************* CONFIGURE *************
 "
 
-echo ">>> $CMAKE \\
-    -S $SRC_DIR \\
-    -B $BUILD_DIR \\
-    --preset $PRESET \\
-    -DCMAKE_PREFIX_PATH:STRING=\"$CMAKE_PREFIX_PATH\""
+# Echo a string, then replace newlines and execute it. The newlines may exist to make the command more readable while echoing.
+logcmd () {
+    echo ">>> $1"
+    ${1// \\/ }
+    return $?
+}
 
-$CMAKE -S $SRC_DIR -B $BUILD_DIR --preset $PRESET -DCMAKE_PREFIX_PATH:STRING=$CMAKE_PREFIX_PATH
+logcmd "$CMAKE \\
+--preset $PRESET \\
+-S $SRC_DIR \\
+-B $BUILD_DIR \\
+-DCMAKE_PREFIX_PATH:STRING=$CMAKE_PREFIX_PATH \\
+$CMAKE_ARGS"
 
 if [ $? -ne 0 ]; then
     echo "Configuring failed, terminating..."
@@ -286,11 +306,9 @@ echo "
 *************** BUILD ***************
 "
 
-echo ">>> $CMAKE \\
+logcmd "$CMAKE \\
     --build $BUILD_DIR \\
     --config $BUILD_CONFIG"
-
-$CMAKE --build $BUILD_DIR --config $BUILD_CONFIG
 
 if [ $? -ne 0 ]; then
     echo "Building failed, terminating..."
@@ -313,12 +331,10 @@ if [ -n "$(ls -A "$INSTALL_DIR")" ]; then
     rm -rfI "$INSTALL_DIR"
 fi 
 
-echo ">>> $CMAKE \\
+logcmd "$CMAKE \\
     --install $BUILD_DIR \\
     --prefix $INSTALL_DIR \\
     --config $BUILD_CONFIG"
-
-$CMAKE --install $BUILD_DIR --prefix $INSTALL_DIR --config $BUILD_CONFIG
 
 if [ $? -ne 0 ]; then
     echo "Installing failed, terminating..."
@@ -331,4 +347,7 @@ echo "
 Success. Check the following locations:
     Build: '$BUILD_DIR'
     Install: '$INSTALL_DIR'
+
+*************************************
+*************************************
 "

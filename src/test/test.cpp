@@ -300,9 +300,9 @@ void CalQTest::testFunctionParsing()
         {"4.0 + id(3.0)", calqmath::Scalar{"7.0"}},
     };
 
-    for (auto const& [input, output] : testCases)
+    for (auto const& [i, output] : testCases)
     {
-        QCOMPARE(m_interpreter.expression(input)->evaluate(), output);
+        QCOMPARE(m_interpreter.expression(i)->evaluate(), output);
     }
 }
 
@@ -337,7 +337,7 @@ void CalQTest::testSmallScalarStringify()
     using calqmath::Scalar;
 
     // Number that is zero yet has complicated mantissa
-    auto const intermed{Scalar{0ULL} * Scalar{0.02}};
+    auto const intermed{Scalar::zero() * Scalar{0.02}};
 
     auto const scalar{Scalar{"-1"} * intermed};
     auto const result{scalar.toString()};

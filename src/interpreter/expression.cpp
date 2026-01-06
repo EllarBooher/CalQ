@@ -241,7 +241,7 @@ namespace
 auto getCurveOfTerm(Term const& term, GraphCurve const& input) -> GraphCurve
 {
     auto const visitor{overloads{
-        [&](Scalar const& scalar)
+        [&](Scalar const& scalar) -> GraphCurve
     {
         GraphCurve output;
 
@@ -269,7 +269,7 @@ auto getCurveOfTerm(Term const& term, GraphCurve const& input) -> GraphCurve
 
         return output;
     },
-        [&](InputVariable const&)
+        [&](InputVariable const&) -> GraphCurve
     {
         GraphCurve output;
 
@@ -306,7 +306,8 @@ auto getCurveOfTerm(Term const& term, GraphCurve const& input) -> GraphCurve
 
         return output;
     },
-        [&](Expression const& expression) { return expression.graph(input); }
+        [&](Expression const& expression) -> GraphCurve
+    { return expression.graph(input); }
     }};
 
     auto result = std::visit(visitor, term);
@@ -443,13 +444,14 @@ void Expression::cacheHasVariable()
     {
         std::visit(
             overloads{
-                [](Scalar const&) {},
-                [&](Expression& expression)
+                [](Scalar const&) -> void {},
+                [&](Expression& expression) -> void
         {
             expression.cacheHasVariable();
             m_hasVariableCached |= expression.hasVariable();
         },
-                [&](InputVariable const&) { m_hasVariableCached = true; }
+                [&](InputVariable const&) -> void
+        { m_hasVariableCached = true; }
             },
             *term
         );
@@ -461,10 +463,10 @@ auto Expression::stringTerm(size_t index) const -> std::string
     assert(index < m_terms.size() || m_terms[index] != nullptr);
 
     auto const visitor = overloads{
-        [](Scalar const& number) { return number.toString(); },
-        [&](Expression const& expression)
+        [](Scalar const& number) -> std::string { return number.toString(); },
+        [&](Expression const& expression) -> std::string
     { return "(" + expression.string() + ")"; },
-        [](InputVariable const&)
+        [](InputVariable const&) -> std::string
     { return std::string{InputVariable::RESERVED_NAME}; }
     };
 
@@ -477,10 +479,12 @@ auto Expression::evaluateTerm(size_t index, Scalar const& variable) const
     assert(index < m_terms.size() || m_terms[index] != nullptr);
 
     auto const visitor = overloads{
-        [](Scalar const& number) { return std::optional{number}; },
-        [&](Expression const& expression)
+        [](Scalar const& number) -> std::optional<Scalar>
+    { return std::optional{number}; },
+        [&](Expression const& expression) -> std::optional<Scalar>
     { return expression.evaluate(variable); },
-        [&](InputVariable const&) { return std::optional{variable}; }
+        [&](InputVariable const&) -> std::optional<Scalar>
+    { return std::optional{variable}; }
     };
 
     return std::visit(visitor, *m_terms[index]);

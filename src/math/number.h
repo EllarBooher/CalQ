@@ -74,6 +74,7 @@ public:
     [[nodiscard]] auto toMantissaExponent() const
         -> std::tuple<std::string, ptrdiff_t>;
 
+    [[nodiscard]]
     auto precision() const -> size_t;
 
     static auto zero() -> Scalar;

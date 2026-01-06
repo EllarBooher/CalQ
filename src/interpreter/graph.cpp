@@ -308,12 +308,14 @@ auto calqmath::GraphCurve::generateUnitLine(
 
     GraphCurve curve{.chunks{GraphChunk{
         .beginX = min,
+        .beginIsOpen = false,
         .beginY = min,
         .gridXDelta = middleXDelta,
         .gridIdxBegin = gridIdxBegin,
         .gridIdxEnd = gridIdxEnd,
         .gridY = {},
         .endX = max,
+        .endIsOpen = false,
         .endY = max,
     }}};
 

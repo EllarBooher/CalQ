@@ -39,7 +39,7 @@ auto isAlpha(char const character) -> bool
 
 auto trim(std::string const& rawInput) -> std::deque<char>
 {
-    auto const isnotwhitespace = [](char character)
+    auto const isnotwhitespace = [](char character) -> bool
     { return std::isspace(character) == 0; };
 
     auto trimmed{rawInput | std::views::filter(isnotwhitespace)};

@@ -27,9 +27,6 @@ set(vendor_include_dir "${CMAKE_SOURCE_DIR}/vendor")
 
 qt_standard_project_setup()
 
-# Use Qt resources system to avoid having to track where .qml files go
-qt_add_resources(RCC_SOURCES resources.qrc)
-
 ################################################################################
 # CalQMath
 #   Math backend with underlying opaque number type used in calculations
@@ -74,8 +71,8 @@ target_link_libraries(CalQInterpreter PRIVATE CalQMath)
 qt_add_executable(CalQApp
   WIN32 MACOSX_BUNDLE
   src/app/main.cpp
-  src/app/mainwindow.cpp src/app/mainwindow.h src/app/mainwindow.ui
-  src/app/calqgraph.h src/app/calqgraph.cpp
+  src/app/mainwindow.cpp src/app/mainwindow.h  src/app/mainwindow.ui
+  src/app/calqgraph.h    src/app/calqgraph.cpp
 )
 set_target_properties(CalQApp PROPERTIES CXX_STANDARD 23 OUTPUT_NAME CalQ)
 target_include_directories(CalQApp PRIVATE src/)
